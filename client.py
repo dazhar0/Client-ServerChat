@@ -1,35 +1,35 @@
 import asyncio
 import websockets
+import ssl
 
 async def connect_to_server():
+    # Disable SSL verification (ONLY FOR LOCAL TESTING)
+    ssl_context = ssl._create_unverified_context()
+
     while True:
         try:
-            async with websockets.connect("ws://localhost:8080") as websocket:
-                print("Connected to server.")
+            async with websockets.connect("wss://localhost:8080", ssl=ssl_context) as websocket:
+                print("You are connected to secure server now.")
 
-                # Authentication
-                print(await websocket.recv())  # "Enter username:"
+                print(await websocket.recv())  
                 username = input("Enter username: ")
                 await websocket.send(username)
 
-                print(await websocket.recv())  # "Enter password:"
+                print(await websocket.recv())  
                 password = input("Enter password: ")
                 await websocket.send(password)
 
-                # Authentication result
                 response = await websocket.recv()
                 print(response)
                 if "authentication successful" not in response:
-                    return  # Exit if auth fails
+                    return  
 
-                print(await websocket.recv())  # "You can now start chatting!"
+                print(await websocket.recv())  
 
-                # Start pinging to keep connection alive
                 asyncio.create_task(heartbeat(websocket))
 
-                # Chat loop
                 while True:
-                    message = input("Enter message (or 'exit' to quit): ")
+                    message = input("Chat here (or type 'exit' to disconnect): ")
                     if message.lower() == "exit":
                         break
 
@@ -38,21 +38,20 @@ async def connect_to_server():
                     print(response)
 
         except websockets.exceptions.ConnectionClosedError:
-            print("Connection lost. Reconnecting in 5 seconds...")
-            await asyncio.sleep(5)  # Wait and retry connection
+            print("The Connection lost. Reconnecting in 5 seconds...")
+            await asyncio.sleep(5)  
 
         except Exception as e:
             print(f"Error: {e}. Reconnecting in 5 seconds...")
             await asyncio.sleep(5)
 
 async def heartbeat(websocket):
-    """Keeps the connection alive by responding to pings."""
     try:
         while True:
-            await asyncio.sleep(10)  # Check every 10 seconds
+            await asyncio.sleep(10)
             pong = await websocket.ping()
-            await pong  # Wait for the pong response
+            await pong
     except websockets.ConnectionClosed:
-        pass  # Handle disconnection
+        pass
 
 asyncio.run(connect_to_server())
