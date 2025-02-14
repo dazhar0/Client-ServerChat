@@ -17,10 +17,10 @@ TIME_FRAME = 5
 async def ws_server(websocket, path=None):
     username = None  
     try:
-        await websocket.send("Enter your username:")
+        await websocket.send("")
         username = await websocket.recv()
 
-        await websocket.send("Enter your password:")
+        await websocket.send("")
         password = await websocket.recv()
 
         if username in valid_credentials and valid_credentials[username] == password:
