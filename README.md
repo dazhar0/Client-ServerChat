@@ -8,8 +8,6 @@ websockets and ssl Python libraries
 
 
 
-
-
 # Installation
 Clone the repository:
 git clone https://github.com/dazhar0/Client-ServerChat.git
@@ -31,6 +29,9 @@ openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pe
 
 
 
+# You are going to need your IP Address to place into the files
+Enter client.py file and where YOURIPADDRESS replace with your IP Address
+
 
 # Running the Server
 To start the WebSocket server, run:
@@ -42,9 +43,9 @@ python client.py
 
 
 # Project Structure
-Client-ServerChat/
-├── private.key
-├── certificate.crt
-├── client.py
-├── server.py
-└── README.md
+Client-ServerChat/  
+├── private.key<br />
+├── certificate.crt<br />
+├── client.py<br />
+├── server.py<br />
+└── README.md<br />
