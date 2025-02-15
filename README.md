@@ -1,3 +1,6 @@
+# Team Member Names
+Daniyal Azhar, Adrian Perez (Group 16)
+
 # Secure WebSocket Server and Client Communication
 This project demonstrates how to set up a secure WebSocket server and client communication using SSL certificates with Python. The server and client will communicate over a secure WebSocket (wss) connection.
 
