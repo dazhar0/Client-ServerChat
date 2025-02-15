@@ -83,8 +83,8 @@ async def main():
     # Load SSL cert and key
     ssl_context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")  
     # Enable SSL
-    server = await websockets.serve(ws_server, "localhost", 8080, ssl=ssl_context)  
-    print("Secure WebSocket server started on wss://localhost:8080")
+    server = await websockets.serve(ws_server, "0.0.0.0", 8080, ssl=ssl_context)  
+    print("Secure WebSocket server started on wss://<YOURIPADDRESS>:8080")
     await server.wait_closed()
 
 if __name__ == "__main__":
