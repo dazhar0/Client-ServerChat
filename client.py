@@ -13,26 +13,21 @@ async def connect_to_server():
     while True:
         try:
             # Establishing a secure WebSocket connection
-            async with websockets.connect("wss://<YOURIPADDRESS>:8080", ssl=ssl_context) as websocket:
+            async with websockets.connect("wss://localhost:8080", ssl=ssl_context) as websocket:
                 print("You are connected to secure server now.")
-
-                # Receiving and printing the initial message from the server
-                print(await websocket.recv())  
-                # Prompting the user to enter a username and sending it to the server
+                
+                # Prompting the user to enter 'login' or 'create', username, and password
+                action = input("Enter 'login' to log in or 'create' to create a new account: ")
                 username = input("Enter username: ")
-                await websocket.send(username)
-
-                # Receiving and printing the server's response to the username
-                print(await websocket.recv())  
-                # Prompting the user to enter a password and sending it to the server
                 password = input("Enter password: ")
-                await websocket.send(password)
+                credentials = f"{action},{username},{password}"
+                await websocket.send(credentials)
 
-                # Receiving and printing the server's response to the password
+                # Receiving and printing the server's response to the credentials
                 response = await websocket.recv()
                 print(response)
-                # If authentication fails, exit the function
-                if "authentication successful" not in response:
+                # If authentication or account creation fails, exit the function
+                if "authentication successful" not in response and "Account created successfully" not in response:
                     return  
 
                 # Receiving and printing the next message from the server
@@ -45,6 +40,8 @@ async def connect_to_server():
                 while True:
                     message = input("Chat here (or type 'exit' to disconnect): ")
                     if message.lower() == "exit":
+                        await websocket.send("exit")
+                        print(await websocket.recv())
                         break
 
                     # Sending the user's message to the server and printing the response
