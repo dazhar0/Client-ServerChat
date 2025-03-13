@@ -2,11 +2,12 @@ import asyncio
 import websockets
 import ssl
 import time
+import bcrypt
 
 valid_credentials = {
-    "Danny": "dannyboy",
-    "Adrian": "mypassword",
-    "test1" : "testing"
+    "Danny": bcrypt.hashpw("dannyboy".encode(), bcrypt.gensalt()).decode(),
+    "Adrian": bcrypt.hashpw("mypassword".encode(), bcrypt.gensalt()).decode(),
+    "test1": bcrypt.hashpw("testing".encode(), bcrypt.gensalt()).decode()
 }
 
 active_clients = {}
@@ -17,17 +18,26 @@ TIME_FRAME = 5
 async def ws_server(websocket, path=None):
     username = None  
     try:
-        await websocket.send("")
-        username = await websocket.recv()
+        # Remove the prompt sending from the server
+        credentials = await websocket.recv()
+        action, username, password = credentials.split(',')
 
-        await websocket.send("")
-        password = await websocket.recv()
-
-        if username in valid_credentials and valid_credentials[username] == password:
-            await websocket.send(f"Welcome {username}, authentication successful!")
+        if action == "create":
+            if username in valid_credentials:
+                await websocket.send("Username already exists. Disconnecting...")
+                return
+            hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+            valid_credentials[username] = hashed_password
+            await websocket.send(f"Account created successfully for {username}!")
+        elif action == "login":
+            if username in valid_credentials and bcrypt.checkpw(password.encode(), valid_credentials[username].encode()):
+                await websocket.send(f"Welcome {username}, authentication successful!")
+            else:
+                await websocket.send("Invalid username or password. Disconnecting...")
+                return
         else:
-            await websocket.send("Invalid username or password. Disconnecting...")
-            return  
+            await websocket.send("Invalid action. Disconnecting...")
+            return
 
         active_clients[username] = websocket
         message_timestamps[username] = []
@@ -40,6 +50,9 @@ async def ws_server(websocket, path=None):
 
         while True:
             message = await websocket.recv()
+            if message.lower() == "exit":
+                await websocket.send("You have been disconnected.")
+                break
 
             current_time = time.time()
             message_timestamps[username] = [
@@ -80,9 +93,7 @@ async def heartbeat(websocket, username):
 
 async def main():
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    # Load SSL cert and key
     ssl_context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")  
-    # Enable SSL
     server = await websockets.serve(ws_server, "0.0.0.0", 8080, ssl=ssl_context)  
     print("Secure WebSocket server started on wss://<YOURIPADDRESS>:8080")
     await server.wait_closed()
