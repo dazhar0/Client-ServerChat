@@ -1,91 +1,91 @@
-import asyncio
-import websockets
-import ssl
-import time
+import socket
+import threading
 
-valid_credentials = {
-    "Danny": "dannyboy",
-    "Adrian": "mypassword",
-    "test1" : "testing"
-}
+SERVER_HOST = '127.0.0.1'
+SERVER_PORT = 12345
 
-active_clients = {}
-message_timestamps = {}
-MAX_MESSAGES = 3  
-TIME_FRAME = 5  
+user_sessions = {}
 
-async def ws_server(websocket, path=None):
-    username = None  
-    try:
-        await websocket.send("")
-        username = await websocket.recv()
+# Function to send message to all users (notify them about a new connection)
+def notify_users(message):
+    for user_socket in user_sessions.values():
+        try:
+            user_socket.send(message.encode('utf-8'))
+        except Exception as e:
+            print(f"Error notifying users: {e}")
 
-        await websocket.send("")
-        password = await websocket.recv()
+def handle_client(client_socket, client_address):
+    print(f"Connection established with {client_address}")
+    
+    current_user = None
+    
+    while True:
+        try:
+            message = client_socket.recv(1024).decode('utf-8')
+            if not message:
+                break
 
-        if username in valid_credentials and valid_credentials[username] == password:
-            await websocket.send(f"Welcome {username}, authentication successful!")
-        else:
-            await websocket.send("Invalid username or password. Disconnecting...")
-            return  
+            message_parts = message.split(',', 1)
+            command = message_parts[0]
 
-        active_clients[username] = websocket
-        message_timestamps[username] = []
-        print(f"Client {username} connected.")
+            if command == "login":
+                username, password = message_parts[1].split(",", 1)
+                if username in user_sessions:
+                    client_socket.send(f"Username {username} is already logged in.".encode('utf-8'))
+                else:
+                    user_sessions[username] = client_socket
+                    current_user = username
+                    client_socket.send(f"Welcome {username}, authentication successful!".encode('utf-8'))
+                    notify_users(f"{username} has connected.")
+                    print(f"{username} connected.")
+                    # Notify the new user of all connected users
+                    connected_users = ", ".join(user_sessions.keys())
+                    client_socket.send(f"Connected users: {connected_users}".encode('utf-8'))
 
-        await broadcast(f"{username} has joined the chat.", websocket)
-        await websocket.send("You can now start chatting!")
+            elif command == "chat":
+                if current_user:
+                    recipient, message_content = message_parts[1].split(",", 1)
+                    if recipient in user_sessions:
+                        user_sessions[recipient].send(f"{current_user}: {message_content}".encode('utf-8'))  # Send message to recipient
+                        client_socket.send(f"Message sent to {recipient}: {message_content}".encode('utf-8'))
+                    else:
+                        client_socket.send(f"User {recipient} not found.".encode('utf-8'))
 
-        asyncio.create_task(heartbeat(websocket, username))
+            elif command == "switch_user":
+                target_user = message_parts[1]
+                if target_user in user_sessions:
+                    current_user = target_user
+                    client_socket.send(f"Switched to chat with {target_user}".encode('utf-8'))
+                else:
+                    client_socket.send(f"User {target_user} not found.".encode('utf-8'))
 
-        while True:
-            message = await websocket.recv()
+            elif command == "list_users":
+                connected_users = ", ".join(user_sessions.keys())
+                client_socket.send(f"Connected users: {connected_users}".encode('utf-8'))
 
-            current_time = time.time()
-            message_timestamps[username] = [
-                t for t in message_timestamps[username] if current_time - t < TIME_FRAME
-            ]
+            else:
+                client_socket.send("Invalid command.".encode('utf-8'))
 
-            if len(message_timestamps[username]) >= MAX_MESSAGES:
-                await websocket.send("Rate limit exceeded. Please wait.")
-                continue  
+        except Exception as e:
+            print(f"Error handling client: {e}")
+            break
 
-            message_timestamps[username].append(current_time)
-            print(f"{username}: {message}")
+    if current_user:
+        del user_sessions[current_user]
+        notify_users(f"{current_user} has disconnected.")
+    client_socket.close()
+    print(f"Connection closed for {client_address}")
 
-            await broadcast(f"{username}: {message}", websocket)
+def start_server():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((SERVER_HOST, SERVER_PORT))
+    server_socket.listen(5)
+    print(f"Server started on {SERVER_HOST}:{SERVER_PORT}")
 
-    except websockets.ConnectionClosed:
-        print(f"Client {username} disconnected.")
-    finally:
-        if username in active_clients:
-            del active_clients[username]
-            del message_timestamps[username]
-            await broadcast(f"{username} has left the chat.", None)
-
-async def broadcast(message, sender_websocket):
-    await asyncio.gather(*[
-        client.send(message)
-        for user, client in active_clients.items()
-        if client != sender_websocket
-    ], return_exceptions=True)
-
-async def heartbeat(websocket, username):
-    try:
-        while username in active_clients:
-            await websocket.ping()
-            await asyncio.sleep(10)
-    except websockets.ConnectionClosed:
-        pass
-
-async def main():
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    # Load SSL cert and key
-    ssl_context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")  
-    # Enable SSL
-    server = await websockets.serve(ws_server, "0.0.0.0", 8080, ssl=ssl_context)  
-    print("Secure WebSocket server started on wss://<YOURIPADDRESS>:8080")
-    await server.wait_closed()
+    while True:
+        client_socket, client_address = server_socket.accept()
+        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
+        client_thread.start()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    start_server()
