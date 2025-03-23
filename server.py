@@ -1,5 +1,6 @@
 import socket
 import threading
+import bcrypt
 
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 12345
@@ -33,27 +34,32 @@ def handle_client(client_socket, client_address):
                 username, password = message_parts[1].split(",", 1)
                 if username not in registered_users:
                     client_socket.send(f"User {username} is not registered.".encode('utf-8'))
-                elif registered_users[username] != password:
-                    client_socket.send(f"Incorrect password for {username}.".encode('utf-8'))
                 else:
-                    if username in user_sessions:
-                        client_socket.send(f"Username {username} is already logged in.".encode('utf-8'))
+                    # Compare hashed password
+                    stored_hash = registered_users[username]
+                    if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
+                        if username in user_sessions:
+                            client_socket.send(f"Username {username} is already logged in.".encode('utf-8'))
+                        else:
+                            user_sessions[username] = client_socket
+                            current_user = username
+                            client_socket.send(f"Welcome {username}, authentication successful!".encode('utf-8'))
+                            notify_users(f"{username} has connected.")
+                            print(f"{username} connected.")
+                            # Notify the new user of all connected users
+                            connected_users = ", ".join(user_sessions.keys())
+                            client_socket.send(f"Connected users: {connected_users}".encode('utf-8'))
                     else:
-                        user_sessions[username] = client_socket
-                        current_user = username
-                        client_socket.send(f"Welcome {username}, authentication successful!".encode('utf-8'))
-                        notify_users(f"{username} has connected.")
-                        print(f"{username} connected.")
-                        # Notify the new user of all connected users
-                        connected_users = ", ".join(user_sessions.keys())
-                        client_socket.send(f"Connected users: {connected_users}".encode('utf-8'))
+                        client_socket.send(f"Incorrect password for {username}.".encode('utf-8'))
 
             elif command == "register":
                 username, password = message_parts[1].split(",", 1)
                 if username in registered_users:
                     client_socket.send(f"Username {username} is already registered.".encode('utf-8'))
                 else:
-                    registered_users[username] = password
+                    # Hash the password
+                    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+                    registered_users[username] = hashed_password
                     client_socket.send(f"User {username} registered successfully.".encode('utf-8'))
 
             elif command == "chat":
