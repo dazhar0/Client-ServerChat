@@ -1,236 +1,281 @@
 import socket
-import tkinter as tk
-from tkinter import messagebox
 import threading
-import select
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+from auth import create_account, login
+from encryption import generate_key, encrypt_file, decrypt_file
+from logging_system import setup_logging, log_message
+import emoji
+import os
+from datetime import datetime
 
-SERVER_HOST = '127.0.0.1'
-SERVER_PORT = 12345
+# Client configuration
+HOST = '127.0.0.1'
+PORT = 12345
 
-client_socket = None
-current_user = None
-current_chat = None
-receive_thread = None
+class ChatApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Chat Application")
+        self.current_user = None
+        self.selected_user = None
+        self.users = {}  # Store chat history for each user
+        self.logged_in_users = []  # Track logged-in users
+        self.client_socket = None
+        self.log_file = None
+        self.setup_gui()
 
-# Function to handle server connection
-def connect_to_server():
-    global client_socket
-    try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((SERVER_HOST, SERVER_PORT))
-        client_socket.setblocking(False)  # Set socket to non-blocking mode
-    except Exception as e:
-        messagebox.showerror("Error", f"Unable to connect to the server: {e}")
-
-# Function to handle login attempt
-def attempt_login():
-    global client_socket, current_user
-    username = entry_username.get()
-    password = entry_password.get()
-
-    if not username or not password:
-        messagebox.showwarning("Input Error", "Please enter both username and password.")
-        return
-
-    connect_to_server()  # Ensure connection is established
-
-    try:
-        # Use select to wait for the socket to be ready to send data
-        rlist, wlist, xlist = select.select([], [client_socket], [], 1)
-        if client_socket in wlist:
-            # Send login request
-            client_socket.send(f"login,{username},{password}".encode('utf-8'))
-
-            # Wait for server response
-            rlist, _, _ = select.select([client_socket], [], [], 1)
-            if client_socket in rlist:
-                response = client_socket.recv(1024).decode('utf-8')
-                messagebox.showinfo("Login Response", response)
-
-                if "authentication successful" in response:
-                    current_user = username
-
-                    # Hide the login frame
-                    login_frame.pack_forget()
-
-                    # Show the chat frame
-                    chat_frame.pack(fill="both", expand=True)
-
-                    # List connected users (only if login is successful)
-                    client_socket.send("list_users".encode('utf-8'))
-                    rlist, _, _ = select.select([client_socket], [], [], 1)
-                    if client_socket in rlist:
-                        users_response = client_socket.recv(1024).decode('utf-8')
-                        if "Connected users:" in users_response:
-                            users_list = users_response.split(":")[1].split(",")
-                            user_listbox.delete(0, tk.END)  # Clear previous users
-                            for user in users_list:
-                                user_listbox.insert(tk.END, user.strip())
-
-                    # Start listening for incoming messages in a separate thread
-                    global receive_thread
-                    receive_thread = threading.Thread(target=receive_messages, daemon=True)
-                    receive_thread.start()
-
-    except Exception as e:
-        messagebox.showerror("Error", f"Unable to connect to the server: {e}")
-
-# Function to send chat message
-def send_message():
-    global current_chat  # Ensure we are sending to the current chat user
-
-    message = entry_message.get()
-    if message and current_chat:  # Ensure current_chat is not None
-        # Replace text emojis with their Unicode equivalents
-        emojis = {
-            ":)": "😊",
-            ";)": "😉",
-            ":D": "😄",
-            ":P": "😜",
-            ":(": "☹️"
-        }
-        for emoji, unicode in emojis.items():
-            message = message.replace(emoji, unicode)
-
-        # Send the message to the correct user
-        threading.Thread(target=send_message_thread, args=(current_chat, message), daemon=True).start()
-        display_message(f"{current_user}: {message}")  # Display the message in the chat window
-        entry_message.delete(0, tk.END)
-
-# Send message in a separate thread to avoid blocking the UI
-def send_message_thread(to_user, message):
-    try:
-        client_socket.send(f"chat,{to_user},{message}".encode('utf-8'))
-    except Exception as e:
-        print(f"Error sending message: {e}")
-
-# Function to switch users (chat with a different user)
-def switch_user():
-    global current_chat, receive_thread
-
-    selected_user = user_listbox.get(tk.ACTIVE)
-    if selected_user:
-        current_chat = selected_user  # Update current chat to the selected user
-        threading.Thread(target=switch_user_thread, args=(selected_user,), daemon=True).start()
-
-# Switch user in a separate thread to avoid blocking the UI
-def switch_user_thread(selected_user):
-    try:
-        client_socket.send(f"switch_user,{selected_user}".encode('utf-8'))
+    def setup_gui(self):
+        self.login_frame = ttk.Frame(self.root)
+        self.login_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Wait for server response before continuing
-        rlist, _, _ = select.select([client_socket], [], [], 1)
-        if client_socket in rlist:
-            response = client_socket.recv(1024).decode('utf-8')
-            messagebox.showinfo("Switch User Response", f"Now chatting with {selected_user}")
+        self.username_label = ttk.Label(self.login_frame, text="Username:")
+        self.username_label.pack()
+        self.username_entry = ttk.Entry(self.login_frame)
+        self.username_entry.pack()
         
-        # Display the switch action message to confirm chat switch
-        display_message(f"Switched to chat with {selected_user}")
+        self.password_label = ttk.Label(self.login_frame, text="Password:")
+        self.password_label.pack()
+        self.password_entry = ttk.Entry(self.login_frame, show="*")
+        self.password_entry.pack()
         
-        # Stop the previous receiving thread if it exists and start a new one
-        if receive_thread.is_alive():
-            receive_thread.join()  # Ensure previous thread stops before restarting
-        receive_thread = threading.Thread(target=receive_messages, daemon=True)
-        receive_thread.start()
+        self.login_button = ttk.Button(self.login_frame, text="Login", command=self.login)
+        self.login_button.pack()
         
-    except Exception as e:
-        print(f"Error switching user: {e}")
+        self.register_button = ttk.Button(self.login_frame, text="Register", command=self.register)
+        self.register_button.pack()
 
-# Function to display a message in the chat window
-def display_message(message):
-    chat_box.config(state=tk.NORMAL)
-    chat_box.insert(tk.END, message + "\n")
-    chat_box.config(state=tk.DISABLED)
-    chat_box.yview(tk.END)
-
-# Function to handle incoming messages
-def receive_messages():
-    global client_socket
-    while True:
+    def connect_to_server(self):
         try:
-            # Use select to check if the socket is ready to receive data
-            rlist, _, _ = select.select([client_socket], [], [], 1)
-            if client_socket in rlist:
-                message = client_socket.recv(1024).decode('utf-8')
-                if message:
-                    root.after(0, display_message, message)  # Update UI from the main thread
-        except BlockingIOError:
-            # This is expected when the socket is non-blocking, we can just continue
-            continue
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((HOST, PORT))
+            self.receive_thread = threading.Thread(target=self.receive_messages)
+            self.receive_thread.start()
         except Exception as e:
-            print(f"Error receiving message: {e}")
-            break
+            messagebox.showerror("Connection Error", f"Failed to connect to server: {e}")
 
-# Function to handle user registration
-def attempt_register():
-    global client_socket
-    username = entry_username.get()
-    password = entry_password.get()
+    def login(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        result = login(username, password)
+        messagebox.showinfo("Login", result)
+        if result == "Login successful":
+            self.current_user = username
+            self.show_chat_interface()
+            self.connect_to_server()
+            if self.client_socket:
+                self.client_socket.send(username.encode())
+                if username not in self.logged_in_users:
+                    self.logged_in_users.append(username)
+                    self.users[username] = []
+                self.request_online_users()
+            self.start_logging(username)
 
-    if not username or not password:
-        messagebox.showwarning("Input Error", "Please enter both username and password.")
-        return
+    def register(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        result = create_account(username, password)
+        messagebox.showinfo("Register", result)
 
-    connect_to_server()  # Ensure connection is established
+    def show_chat_interface(self):
+        self.login_frame.pack_forget()
+        self.user_frame = ttk.Frame(self.root)
+        self.user_frame.pack(side=tk.LEFT, fill=tk.Y)
+        
+        self.chat_frame = ttk.Frame(self.root)
+        self.chat_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        
+        self.user_list = tk.Listbox(self.user_frame)
+        self.user_list.pack(fill=tk.Y)
+        self.user_list.bind('<<ListboxSelect>>', self.switch_user)
+        
+        self.chat_area = tk.Text(self.chat_frame)
+        self.chat_area.pack(fill=tk.BOTH, expand=True)
+        
+        self.message_entry = tk.Text(self.chat_frame, height=2)
+        self.message_entry.pack(fill=tk.X)
+        
+        self.send_button = ttk.Button(self.chat_frame, text="Send", command=self.send_message)
+        self.send_button.pack()
+        
+        self.file_button = ttk.Button(self.chat_frame, text="Send File", command=self.send_file)
+        self.file_button.pack()
+        
+        self.emoji_picker = ttk.Combobox(self.chat_frame, values=[emoji.emojize(":smile:", language='alias'), emoji.emojize(":crying_face:", language='alias'), emoji.emojize(":heart:", language='alias'), emoji.emojize(":thumbs_up:", language='alias'), emoji.emojize(":sunglasses:", language='alias')])
+        self.emoji_picker.pack()
+        self.emoji_picker.bind("<<ComboboxSelected>>", self.add_emoji)
+        
+        self.bold_button = ttk.Button(self.chat_frame, text="Bold", command=lambda: self.format_text('bold'))
+        self.bold_button.pack()
+        
+        self.italic_button = ttk.Button(self.chat_frame, text="Italic", command=lambda: self.format_text('italic'))
+        self.italic_button.pack()
+        
+        self.link_button = ttk.Button(self.chat_frame, text="Link", command=lambda: self.format_text('link'))
+        self.link_button.pack()
+        
+        # Populate the user list with logged-in users
+        self.user_list.delete(0, tk.END)
+        for user in self.logged_in_users:
+            self.user_list.insert(tk.END, user)
 
-    try:
-        # Use select to wait for the socket to be ready to send data
-        rlist, wlist, xlist = select.select([], [client_socket], [], 1)
-        if client_socket in wlist:
-            # Send register request
-            client_socket.send(f"register,{username},{password}".encode('utf-8'))
+    def request_online_users(self):
+        if self.client_socket:
+            self.client_socket.send("ONLINE_USERS".encode())
 
-            # Wait for server response
-            rlist, _, _ = select.select([client_socket], [], [], 1)
-            if client_socket in rlist:
-                response = client_socket.recv(1024).decode('utf-8')
-                messagebox.showinfo("Register Response", response)
+    def switch_user(self, event):
+        if self.user_list.curselection():
+            selected_user = self.user_list.get(self.user_list.curselection())
+            self.selected_user = selected_user
+            self.chat_area.delete(1.0, tk.END)
+            if selected_user not in self.users:
+                self.users[selected_user] = []
+            for message in self.users[selected_user]:
+                self.chat_area.insert(tk.END, message + "\n")
 
-    except Exception as e:
-        messagebox.showerror("Error", f"Unable to connect to the server: {e}")
+    def send_message(self):
+        if self.selected_user is None:
+            messagebox.showerror("Error", "No user selected.")
+            return
+        message = self.message_entry.get("1.0", tk.END).strip()
+        self.chat_area.insert(tk.END, f"You: {message}\n")
+        self.users[self.selected_user].append(f"You: {message}")
+        if self.client_socket:
+            self.client_socket.send(f"PRIVATE:{self.selected_user}:{message}".encode())
+        self.message_entry.delete("1.0", tk.END)
+        log_message(message)
+        self.write_log(f"You: {message}")
 
-# Set up the GUI
-root = tk.Tk()
-root.title("SecureChat")
+    def send_file(self):
+        if self.selected_user is None:
+            messagebox.showerror("Error", "No user selected.")
+            return
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            key = generate_key()
+            encrypted_file_path = encrypt_file(file_path, key)
+            with open(encrypted_file_path, 'rb') as file:
+                file_data = file.read()
+            if self.client_socket:
+                self.client_socket.send(f"FILE:{self.selected_user}:{file_path}".encode())
+                self.client_socket.sendall(file_data)  # Use sendall to ensure all data is sent
+            self.chat_area.insert(tk.END, f"File sent: {file_path}\n")
+            self.users[self.selected_user].append(f"File sent: {file_path}")
+            log_message(f"File sent: {file_path}")
+            self.write_log(f"File sent: {file_path}")
 
-# Login frame
-login_frame = tk.Frame(root)
-login_frame.pack(pady=20)
+    def add_emoji(self, event=None):
+        emoji_code = self.emoji_picker.get()
+        emoji_char = emoji.emojize(emoji_code, language='alias')
+        self.message_entry.insert(tk.END, emoji_char)
 
-tk.Label(login_frame, text="Username").grid(row=0, column=0)
-entry_username = tk.Entry(login_frame)
-entry_username.grid(row=0, column=1)
+    def format_text(self, style):
+        try:
+            selected_text = self.message_entry.selection_get()
+            start_index = self.message_entry.index(tk.SEL_FIRST)
+            end_index = self.message_entry.index(tk.SEL_LAST)
+            if style == 'bold':
+                formatted_text = f"**{selected_text}**"
+            elif style == 'italic':
+                formatted_text = f"*{selected_text}*"
+            elif style == 'link':
+                formatted_text = f"{selected_text}"
+            self.message_entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+            self.message_entry.insert(tk.INSERT, formatted_text)
+        except tk.TclError:
+            messagebox.showerror("Error", "No text selected.")
 
-tk.Label(login_frame, text="Password").grid(row=1, column=0)
-entry_password = tk.Entry(login_frame, show="*")
-entry_password.grid(row=1, column=1)
+    def display_message(self, sender, message):
+        self.chat_area.insert(tk.END, f"{sender}: {message}\n")
+        self.apply_formatting_tags()
+        self.write_log(f"{sender}: {message}")
 
-btn_login = tk.Button(login_frame, text="Login", command=attempt_login)
-btn_login.grid(row=2, column=0, columnspan=2)
+    def apply_formatting_tags(self):
+        content = self.chat_area.get("1.0", tk.END)
+        self.chat_area.tag_remove('bold', "1.0", tk.END)
+        self.chat_area.tag_remove('italic', "1.0", tk.END)
+        self.chat_area.tag_remove('link', "1.0", tk.END)
+        
+        # Apply bold formatting
+        bold_start = content.find("**")
+        while bold_start != -1:
+            bold_end = content.find("**", bold_start + 2)
+            if bold_end != -1:
+                self.chat_area.tag_add('bold', f"1.0 + {bold_start}c", f"1.0 + {bold_end - 2}c")
+                self.chat_area.tag_config('bold', font=('Helvetica', 12, 'bold'))
+                content = content[:bold_start] + content[bold_start + 2:bold_end] + content[bold_end + 2:]
+                bold_start = content.find("**", bold_start)
+            else:
+                break
 
-btn_register = tk.Button(login_frame, text="Register", command=attempt_register)
-btn_register.grid(row=3, column=0, columnspan=2)
+         # Apply italic formatting
+        italic_start = content.find("*")
+        while italic_start != -1:
+            italic_end = content.find("*", italic_start + 1)
+            if italic_end != -1:
+                self.chat_area.tag_add('italic', f"1.0 + {italic_start}c", f"1.0 + {italic_end - 1}c")
+                self.chat_area.tag_config('italic', font=('Helvetica', 12, 'italic'))
+                content = content[:italic_start] + content[italic_start + 1:italic_end] + content[italic_end + 1:]
+                italic_start = content.find("*", italic_start)
+            else:
+                break
 
-# Chat frame
-chat_frame = tk.Frame(root)
+        # Apply link formatting
+        link_start = content.find("")
+        while link_start != -1:
+            link_end = content.find("", link_start)
+            if link_end != -1:
+                self.chat_area.tag_add('link', f"1.0 + {link_start}c", f"1.0 + {link_end - 1}c")
+                self.chat_area.tag_config('link', foreground='blue', underline=True)
+                content = content[:link_start] + content[link_start + 1:link_end] + content[link_end + 6:]
+                link_start = content.find("[", link_start)
+            else:
+                break
 
-# Display the list of users
-user_listbox = tk.Listbox(chat_frame)
-user_listbox.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        # Update the chat area with the formatted content
+        self.chat_area.delete("1.0", tk.END)
+        self.chat_area.insert("1.0", content)
 
-# Display the chat messages
-chat_box = tk.Text(chat_frame, state=tk.DISABLED, height=20, width=50)
-chat_box.pack(side=tk.LEFT, padx=10)
+    def receive_messages(self):
+        while True:
+            try:
+                message = self.client_socket.recv(1024).decode()
+                if message:
+                    if hasattr(self, 'chat_area'):
+                        if message.startswith("FILE:"):
+                            _, sender, file_path = message.split(":", 2)
+                            file_data = b""
+                            while True:
+                                chunk = self.client_socket.recv(1024)
+                                if not chunk:
+                                    break
+                                file_data += chunk
+                            with open(f"received_{file_path}", 'wb') as file:
+                                file.write(file_data)
+                            self.chat_area.insert(tk.END, f"File received from {sender}: {file_path}\n")
+                        elif message.startswith("PRIVATE:"):
+                            _, sender, private_message = message.split(":", 2)
+                            self.display_message(sender, private_message)
+                        elif message.startswith("ONLINE_USERS:"):
+                            online_users = message.split(":")[1].split(",")
+                            self.user_list.delete(0, tk.END)
+                            for user in online_users:
+                                self.user_list.insert(tk.END, user)
+                        else:
+                            self.chat_area.insert(tk.END, message + "\n")
+                            self.apply_formatting_tags()
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                self.client_socket.close()
+                break
 
-# Message entry
-entry_message = tk.Entry(chat_frame)
-entry_message.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+    def start_logging(self, username):
+        setup_logging(username)
 
-btn_send = tk.Button(chat_frame, text="Send", command=send_message)
-btn_send.pack(side=tk.BOTTOM)
+    def write_log(self, message):
+        log_message(message)
 
-# Switch user button
-btn_switch_user = tk.Button(chat_frame, text="Switch User", command=switch_user)
-btn_switch_user.pack(side=tk.BOTTOM)
-
-root.mainloop()
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ChatApp(root)
+    root.mainloop()
