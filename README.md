@@ -52,3 +52,36 @@ Client-ServerChat/
 ├── client.py<br />
 ├── server.py<br />
 └── README.md<br />
+
+
+# Project PART 2
+
+# CLone the Repository
+
+# Change HOST to you IP address on which you will run the server
+
+# change to directory of the repo
+cd client-serverchat
+
+# Running the Server
+To start the WebSocket server, run:
+python server.py
+
+# Running the Client
+To start the WebSocket client, run:
+python client.py
+
+
+# Project Structure
+
+Client-ServerChat/  
+├── client.py<br />
+├── server.py<br />
+└── README.md<br />
+├── auth.py<br />
+└── config.py<br />
+├── encryption.py<br />
+└── file_transfer.py<br />
+├── gui.py<br />
+└── logging_system.py<br />
+├── main.py<br />

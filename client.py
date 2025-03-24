@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 
 # Client configuration
-HOST = 'YOUR IP ADDRESS'
+HOST = '192.168.12.247'
 PORT = 12345
 
 class ChatApp:
