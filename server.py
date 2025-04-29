@@ -2,7 +2,6 @@
 import asyncio
 import json
 import websockets
-import ssl
 from datetime import datetime
 
 clients = {}
@@ -13,6 +12,7 @@ async def notify_presence():
     await asyncio.gather(*[client.send(message) for client in clients.values()])
 
 async def handler(websocket, path):
+    username = "anonymous"
     try:
         # Receive username on connect
         data = await websocket.recv()
@@ -26,7 +26,6 @@ async def handler(websocket, path):
             try:
                 data = json.loads(msg)
                 if data["type"] == "message":
-                    # Broadcast to all users
                     payload = json.dumps({
                         "type": "message",
                         "from": username,
@@ -50,10 +49,10 @@ async def handler(websocket, path):
             del clients[username]
             await notify_presence()
 
-# SSL (for Render/Fly.io use built-in HTTPS termination, no cert needed here)
-start_server = websockets.serve(handler, "0.0.0.0", 8765)
+async def main():
+    async with websockets.serve(handler, "0.0.0.0", 8765):
+        print("WebSocket server started on port 8765...")
+        await asyncio.Future()  # Run forever
 
-print("WebSocket server started on port 8765...")
-
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+if __name__ == "__main__":
+    asyncio.run(main())
