@@ -1,70 +1,59 @@
-import socket
-import threading
+# server.py
+import asyncio
+import json
+import websockets
+import ssl
+from datetime import datetime
 
-# Server configuration
-HOST = '192.168.12.247'
-PORT = 12345
-
-# Dictionary to keep track of connected clients
 clients = {}
 
-def broadcast(message, sender_socket):
-    for client_socket in clients.values():
-        if client_socket != sender_socket:
+async def notify_presence():
+    online_users = list(clients.keys())
+    message = json.dumps({"type": "presence", "users": online_users})
+    await asyncio.gather(*[client.send(message) for client in clients.values()])
+
+async def handler(websocket, path):
+    try:
+        # Receive username on connect
+        data = await websocket.recv()
+        login = json.loads(data)
+        username = login.get("username", "anonymous")
+        clients[username] = websocket
+
+        await notify_presence()
+
+        async for msg in websocket:
             try:
-                client_socket.send(message)
-            except:
-                client_socket.close()
-                remove_client(client_socket)
-
-def handle_client(client_socket, client_address):
-    while True:
-        try:
-            message = client_socket.recv(1024)
-            if message:
-                if message.startswith(b"PRIVATE:"):
-                    _, recipient, private_message = message.decode().split(":", 2)
-                    if recipient in clients:
-                        clients[recipient].send(f"PRIVATE:{recipient}:{private_message}".encode())
-                elif message.startswith(b"FILE:"):
-                    _, recipient, file_name = message.decode().split(":", 2)
-                    file_data = client_socket.recv(1024)
-                    if recipient in clients:
-                        clients[recipient].send(f"FILE:{recipient}:{file_name}".encode())
-                        clients[recipient].send(file_data)
-                elif message.startswith(b"ONLINE_USERS"):
-                    online_users = ",".join(clients.keys())
-                    client_socket.send(f"ONLINE_USERS:{online_users}".encode())
-                else:
-                    broadcast(message, client_socket)
-            else:
-                remove_client(client_socket)
-                break
-        except:
-            remove_client(client_socket)
-            break
-
-def remove_client(client_socket):
-    for username, client in clients.items():
-        if client == client_socket:
+                data = json.loads(msg)
+                if data["type"] == "message":
+                    # Broadcast to all users
+                    payload = json.dumps({
+                        "type": "message",
+                        "from": username,
+                        "message": data["message"],
+                        "timestamp": datetime.utcnow().isoformat()
+                    })
+                    await asyncio.gather(*[client.send(payload) for client in clients.values()])
+                elif data["type"] == "typing":
+                    notify = json.dumps({
+                        "type": "typing",
+                        "user": username
+                    })
+                    await asyncio.gather(*[client.send(notify) for client in clients.values() if client != websocket])
+            except Exception as e:
+                print("Error handling message:", e)
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        # Cleanup on disconnect
+        if username in clients:
             del clients[username]
-            break
+            await notify_presence()
 
-def start_server():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((HOST, PORT))
-    server.listen()
-    print(f"Server running on {HOST}:{PORT}")
+# SSL (for Render/Fly.io use built-in HTTPS termination, no cert needed here)
+start_server = websockets.serve(handler, "0.0.0.0", 8765)
 
-    while True:
-        client_socket, client_address = server.accept()
-        print(f"New connection from {client_address}")
-        client_socket.send("USERNAME".encode())
-        username = client_socket.recv(1024).decode()
-        clients[username] = client_socket
-        broadcast(f"ONLINE_USERS:{','.join(clients.keys())}".encode(), None)
-        thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
-        thread.start()
+print("WebSocket server started on port 8765...")
 
-if __name__ == "__main__":
-    start_server()
+asyncio.get_event_loop().run_until_complete(start_server)
+asyncio.get_event_loop().run_forever()
