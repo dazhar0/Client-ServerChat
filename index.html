@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SecureChat - Login</title>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: sans-serif; max-width: 400px; margin: auto; padding: 2em; }
+    input { width: 100%; margin: 0.5em 0; padding: 0.5em; }
+    button { padding: 0.7em 1.5em; }
+  </style>
+</head>
+<body>
+  <h2>SecureChat Login</h2>
+  <input type="text" id="username" placeholder="Username" />
+  <input type="password" id="password" placeholder="Password" />
+  <button onclick="login()">Login</button>
+  <button onclick="register()">Register</button>
+
+  <p id="msg"></p>
+
+  <script>
+    const API_BASE = "chattitans.42web.io"; // 🔁 replace with your InfinityFree domain
+
+    async function register() {
+      const res = await fetch(`${API_BASE}/register.php`, {
+        method: "POST",
+        body: new URLSearchParams({
+          username: username.value,
+          password: password.value
+        })
+      });
+      const data = await res.json();
+      msg.textContent = data.message;
+    }
+
+    async function login() {
+      const res = await fetch(`${API_BASE}/login.php`, {
+        method: "POST",
+        body: new URLSearchParams({
+          username: username.value,
+          password: password.value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem("username", username.value);
+        location.href = "chat.html";
+      } else {
+        msg.textContent = data.message;
+      }
+    }
+  </script>
+</body>
+</html>

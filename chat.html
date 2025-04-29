@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SecureChat</title>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 1em; background: #f0f0f0; }
+    #chat { max-width: 600px; margin: auto; background: white; padding: 1em; border-radius: 8px; }
+    #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 0.5em; margin-bottom: 1em; }
+    input { width: 80%; padding: 0.5em; }
+    button { padding: 0.5em 1em; }
+  </style>
+</head>
+<body>
+  <div id="chat">
+    <h2>Welcome, <span id="user"></span></h2>
+    <div id="presence"></div>
+    <div id="messages"></div>
+    <input type="text" id="msg" placeholder="Type your message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    const username = localStorage.getItem("username");
+    if (!username) location.href = "index.html";
+    user.textContent = username;
+
+    const socket = new WebSocket("wss:chattitans.42web.io:8765"); // 🔁 replace with your WebSocket URL
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ username }));
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "message") {
+        const msg = document.createElement("div");
+        msg.textContent = `${data.from}: ${data.message}`;
+        messages.appendChild(msg);
+        messages.scrollTop = messages.scrollHeight;
+      }
+      if (data.type === "presence") {
+        presence.textContent = "Online: " + data.users.join(", ");
+      }
+      if (data.type === "typing") {
+        presence.textContent = data.user + " is typing...";
+        setTimeout(() => {
+          presence.textContent = "";
+        }, 1000);
+      }
+    };
+
+    msg.addEventListener("input", () => {
+      socket.send(JSON.stringify({ type: "typing" }));
+    });
+
+    function sendMessage() {
+      socket.send(JSON.stringify({
+        type: "message",
+        message: msg.value
+      }));
+      msg.value = "";
+    }
+  </script>
+</body>
+</html>
