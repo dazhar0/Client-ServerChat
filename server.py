@@ -3,6 +3,8 @@ import json
 import websockets
 from websockets.exceptions import InvalidHandshake, InvalidMessage
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
 
 clients = {}
 
@@ -53,7 +55,31 @@ async def handler(websocket):
             del clients[username]
             await notify_presence()
 
+# --- Health Check HTTP Server ---
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Server is alive.")
+
+    def log_message(self, format, *args):
+        return  # Silence HTTP server logging
+
+def start_http_server():
+    server = HTTPServer(("0.0.0.0", 8080), HealthCheckHandler)
+    print("HTTP health server running on port 8080...")
+    server.serve_forever()
+
 async def main():
+    # Start health check server in a background thread
+    threading.Thread(target=start_http_server, daemon=True).start()
+
+    # Start WebSocket server
     async with websockets.serve(handler, "0.0.0.0", 8765):
         print("WebSocket server running on port 8765...")
         await asyncio.Future()  # Run forever
