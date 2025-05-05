@@ -25,7 +25,7 @@
     if (!username) location.href = "index.html";
     user.textContent = username;
 
-    const socket = new WebSocket("wss://https://client-serverchat.onrender.com"); // 🔁 replace with your WebSocket URL
+    const socket = new WebSocket("wss://client-serverchat.onrender.com"); // 🔁 replace with your WebSocket URL
 
     socket.onopen = () => {
       socket.send(JSON.stringify({ username }));
