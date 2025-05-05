@@ -68,7 +68,7 @@ async def handler(websocket):
             await notify_presence()
 
 async def main():
-    port = int(os.getenv("PORT", 8765))  # Use PORT env var if set, default to 8080
+    port = int(os.getenv("PORT", 10000))  # Use PORT env var if set, default to 8080
 
     loop = asyncio.get_event_loop()
 
