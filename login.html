@@ -19,19 +19,24 @@
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
 
-      const res = await fetch("api.php", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ action: "login", email, password })
-      });
+      try {
+        const res = await fetch("api.php", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ action: "login", email, password })
+        });
 
-      const data = await res.json();
-      document.getElementById("response").innerText = data.message || "Login response received.";
+        const data = await res.json();
+        document.getElementById("response").innerText = data.message || "Login response received.";
 
-      if (data.success) {
-        window.location.href = "chat.html";
+        if (data.success) {
+          window.location.href = "chat.html";
+        }
+      } catch (error) {
+        document.getElementById("response").innerText = "An error occurred during login.";
+        console.error("Login Error:", error);
       }
     });
   </script>

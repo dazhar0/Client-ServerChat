@@ -2,45 +2,41 @@
 require 'db.php';
 header('Content-Type: application/json');
 
-// Detect JSON or form
+// Detect JSON input
 $input = json_decode(file_get_contents("php://input"), true);
-$isJson = is_array($input);
 
-// Helper to send JSON response
-function sendResponse($success, $message) {
-    echo json_encode(['success' => $success, 'message' => $message]);
+if (!$input) {
+    echo json_encode(['success' => false, 'message' => 'Invalid JSON input.']);
     exit;
 }
 
-$email = $isJson ? ($input['email'] ?? '') : ($_POST['email'] ?? '');
-$password = $isJson ? ($input['password'] ?? '') : ($_POST['password'] ?? '');
-$action = $isJson ? ($input['action'] ?? '') : (isset($_POST['register']) ? 'register' : (isset($_POST['login']) ? 'login' : ''));
+$action = $input['action'] ?? '';
+$email = $input['email'] ?? '';
+$password = $input['password'] ?? '';
+$username = $input['username'] ?? '';
 
-if (!$email || !$password) {
-    sendResponse(false, "Email and password are required.");
+if (!$action || !$email || !$password) {
+    echo json_encode(['success' => false, 'message' => 'Missing required fields.']);
+    exit;
 }
 
-// REGISTRATION
 if ($action === 'register') {
-    $hashed = password_hash($password, PASSWORD_BCRYPT);
+    if (!$username) {
+        echo json_encode(['success' => false, 'message' => 'Username is required.']);
+        exit;
+    }
 
-    $stmt = $conn->prepare("INSERT INTO users (email, password) VALUES (?, ?)");
-    $stmt->bind_param("ss", $email, $hashed);
+    $hashed = password_hash($password, PASSWORD_BCRYPT);
+    $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $username, $email, $hashed);
 
     if ($stmt->execute()) {
-        if ($isJson) {
-            sendResponse(true, "Registration successful.");
-        } else {
-            header("Location: index.html");
-            exit;
-        }
+        echo json_encode(['success' => true, 'message' => 'Registration successful.']);
     } else {
-        sendResponse(false, "Error registering: " . $stmt->error);
+        echo json_encode(['success' => false, 'message' => 'Error registering: ' . $stmt->error]);
     }
-}
-
-// LOGIN
-elseif ($action === 'login') {
+    $stmt->close();
+} elseif ($action === 'login') {
     $stmt = $conn->prepare("SELECT password FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
@@ -51,21 +47,76 @@ elseif ($action === 'login') {
         $stmt->fetch();
 
         if (password_verify($password, $hashed_password)) {
-            if ($isJson) {
-                sendResponse(true, "Login successful.");
-            } else {
-                header("Location: chat.html");
-                exit;
-            }
+            echo json_encode(['success' => true, 'message' => 'Login successful.']);
         } else {
-            sendResponse(false, "Invalid credentials.");
+            echo json_encode(['success' => false, 'message' => 'Invalid credentials.']);
         }
     } else {
-        sendResponse(false, "No user found.");
+        echo json_encode(['success' => false, 'message' => 'No user found.']);
     }
+    $stmt->close();
+} else {
+    echo json_encode(['success' => false, 'message' => 'Invalid action.']);
+}
+?>
+<?php
+require 'db.php';
+header('Content-Type: application/json');
+
+// Detect JSON input
+$input = json_decode(file_get_contents("php://input"), true);
+
+if (!$input) {
+    echo json_encode(['success' => false, 'message' => 'Invalid JSON input.']);
+    exit;
 }
 
-else {
-    sendResponse(false, "Invalid action.");
+$action = $input['action'] ?? '';
+$email = $input['email'] ?? '';
+$password = $input['password'] ?? '';
+$username = $input['username'] ?? '';
+
+if (!$action || !$email || !$password) {
+    echo json_encode(['success' => false, 'message' => 'Missing required fields.']);
+    exit;
+}
+
+if ($action === 'register') {
+    if (!$username) {
+        echo json_encode(['success' => false, 'message' => 'Username is required.']);
+        exit;
+    }
+
+    $hashed = password_hash($password, PASSWORD_BCRYPT);
+    $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $username, $email, $hashed);
+
+    if ($stmt->execute()) {
+        echo json_encode(['success' => true, 'message' => 'Registration successful.']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Error registering: ' . $stmt->error]);
+    }
+    $stmt->close();
+} elseif ($action === 'login') {
+    $stmt = $conn->prepare("SELECT password FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $stmt->store_result();
+
+    if ($stmt->num_rows > 0) {
+        $stmt->bind_result($hashed_password);
+        $stmt->fetch();
+
+        if (password_verify($password, $hashed_password)) {
+            echo json_encode(['success' => true, 'message' => 'Login successful.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Invalid credentials.']);
+        }
+    } else {
+        echo json_encode(['success' => false, 'message' => 'No user found.']);
+    }
+    $stmt->close();
+} else {
+    echo json_encode(['success' => false, 'message' => 'Invalid action.']);
 }
 ?>
