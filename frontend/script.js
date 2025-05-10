@@ -12,7 +12,7 @@ function connect() {
   }
 
   // Connect to the WebSocket server
-  socket = new WebSocket("wss://securechat-websocket.onrender.com");
+  socket = new WebSocket("wss://client-serverchat.onrender.com");
 
   socket.onopen = () => {
     console.log("Connected to WebSocket server");
