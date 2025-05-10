@@ -1,12 +1,17 @@
 {
-  "name": "securechat-websocket",
-  "version": "1.0.0",
-  "description": "WebSocket server for SecureChat",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "ws": "^8.4.0"
+    "name": "securechat-ws-server",
+    "version": "1.0.0",
+    "description": "WebSocket backend for SecureChat",
+    "main": "server.js",
+    "scripts": {
+      "start": "node server.js"
+    },
+    "keywords": ["websocket", "chat", "securechat"],
+    "author": "Daniyal Azhar",
+    "license": "MIT",
+    "dependencies": {
+      "ws": "^8.13.0",
+      "dotenv": "^16.3.1"
+    }
   }
-}
+  

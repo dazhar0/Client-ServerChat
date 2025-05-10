@@ -1,6 +1,0 @@
-# .gitignore
-*.pem
-*.key
-*.env
-*.log
-*.DS_Store
