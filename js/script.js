@@ -17,6 +17,7 @@ function connect() {
     document.getElementById("loginSection").style.display = "none";
     document.getElementById("chatSection").style.display = "block";
 
+    // Send join message to server with username
     socket.send(JSON.stringify({ type: "join", username: username }));
   };
 
@@ -65,6 +66,7 @@ function updateOnlineUsers(users) {
   const onlineUsersDiv = document.getElementById("onlineUsers");
   onlineUsersDiv.textContent = users.join(", ");
 }
+
 // Optional: Add simple form toggling
 document.addEventListener("DOMContentLoaded", () => {
   // You could add JS-based redirection or success messages here
