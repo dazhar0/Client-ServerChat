@@ -5,13 +5,11 @@ let onlineUsers = [];
 function connect() {
   username = document.getElementById("usernameInput").value;
   
-  // Check if the username is provided
   if (!username) {
     alert("Please enter a username!");
     return;
   }
 
-  // Connect to the WebSocket server
   socket = new WebSocket("wss://client-serverchat.onrender.com");
 
   socket.onopen = () => {
@@ -19,7 +17,7 @@ function connect() {
     document.getElementById("loginSection").style.display = "none";
     document.getElementById("chatSection").style.display = "block";
 
-    // Send the username to the server
+    // Send username to server
     socket.send(JSON.stringify({ type: "join", username: username }));
   };
 
@@ -34,10 +32,12 @@ function connect() {
 
   socket.onerror = (error) => {
     console.error("WebSocket error:", error);
+    alert("WebSocket error. Try refreshing.");
   };
 
   socket.onclose = () => {
     console.log("Disconnected from WebSocket server");
+    alert("Disconnected. Please refresh the page.");
   };
 }
 
@@ -60,10 +60,9 @@ function displayMessage(data) {
   const messageElement = document.createElement("div");
   messageElement.textContent = `${data.username}: ${data.message}`;
   messagesDiv.appendChild(messageElement);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to the bottom
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 function updateOnlineUsers(users) {
-  const onlineUsersDiv = document.getElementById("onlineUsers");
-  onlineUsersDiv.textContent = users.join(", ");
+  document.getElementById("onlineUsers").textContent = users.join(", ");
 }
