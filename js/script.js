@@ -10,7 +10,7 @@ function connect() {
   }
 
   // Replace with your actual Render WebSocket URL
-  socket = new WebSocket("wss://client-serverchat.onrender.com/ws");
+  socket = new WebSocket("wss://client-serverchat.onrender.com/");
 
   socket.onopen = () => {
     console.log("Connected to WebSocket server");
