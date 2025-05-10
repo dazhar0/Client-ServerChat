@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: securechat-websocket
+    runtime: python
+    buildCommand: ""
+    startCommand: python server.py
+    envVars:
+      - key: PORT
+        value: 10000
+    plan: free
