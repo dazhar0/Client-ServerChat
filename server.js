@@ -71,11 +71,6 @@ server.on('connection', (ws) => {
             if (data.from !== data.to && onlineUsers[data.to]) {
                 onlineUsers[data.to].send(JSON.stringify(payload));  // Send only to recipient
             }
-            
-            // Always send a copy to sender (this might be unnecessary if not required)
-            if (onlineUsers[data.from]) {
-                onlineUsers[data.from].send(JSON.stringify(payload));
-            }
 
             // Save once only
             savePrivateMessage(data.from, toUser, data.message);
