@@ -6,7 +6,7 @@ let onlineUsers = {}; // stores users and their WebSocket connections
 
 // Set up MySQL connection
 const db = mysql.createConnection({
-    host: 'localhost', // Change to your DB host
+    host: 'localhost', // Change to your DB host (e.g., 'localhost' or your MySQL host)
     user: 'root',      // Change to your DB user
     password: '',      // Change to your DB password
     database: 'securechat' // Change to your database name
@@ -26,23 +26,22 @@ server.on('connection', (ws) => {
     // When a message is received
     ws.on('message', (message) => {
         const data = JSON.parse(message);
+        console.log('Received message:', data); // Debugging: Show received messages
 
         if (data.type === 'join') {
             username = data.username;
             onlineUsers[username] = ws;
-            // Send the updated list of online users to the requesting user
-            sendOnlineUsers();
-            // Notify all users that a new user has joined
+            console.log(`${username} has joined.`); // Debugging: Log user joining
+            sendOnlineUsers(); // Send the updated list of online users
             broadcast({ type: 'user_joined', username });
 
-            // Update user presence in the database (optional)
+            // Update user presence in the database
             updatePresence(username, 1);
 
         } else if (data.type === 'leave') {
             if (username) {
-                // Notify all users that the user has left
+                console.log(`${username} has left.`); // Debugging: Log user leaving
                 broadcast({ type: 'user_left', username });
-                // Update user presence in the database (optional)
                 updatePresence(username, 0);
                 delete onlineUsers[username];
                 sendOnlineUsers(); // Send the updated list of online users
@@ -74,6 +73,7 @@ server.on('connection', (ws) => {
     // When the connection is closed
     ws.on('close', () => {
         if (username) {
+            console.log(`${username} has disconnected.`); // Debugging: Log when user disconnects
             delete onlineUsers[username];
             broadcast({ type: 'user_left', username });
             updatePresence(username, 0);
@@ -94,6 +94,7 @@ server.on('connection', (ws) => {
     // Send the list of online users to all clients
     function sendOnlineUsers() {
         const users = Object.keys(onlineUsers).map(username => ({ username, online: 1 }));
+        console.log('Sending online users:', users); // Debugging: Log online users
         for (const user in onlineUsers) {
             onlineUsers[user].send(JSON.stringify({
                 type: 'online_users',
@@ -125,4 +126,3 @@ server.on('connection', (ws) => {
 });
 
 console.log("WebSocket server is running on wss://client-serverchat.onrender.com");
-
