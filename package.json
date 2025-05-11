@@ -14,9 +14,10 @@
       "socket.io-client": "^4.5.1",
       "dotenv": "^16.0.3",
       "axios": "^1.3.0",
-      "crypto-js": "^4.1.1", 
-      "mysql2": "^3.0.0", 
-      "nodemon": "^2.0.22"
+      "crypto-js": "^4.1.1",
+      "mysql2": "^3.0.0",
+      "nodemon": "^2.0.22",
+      "ws": "^8.0.0"
     },
     "devDependencies": {
       "eslint": "^8.14.0"
