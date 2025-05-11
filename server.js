@@ -1,10 +1,10 @@
 const WebSocket = require('ws');
 const mysql = require('mysql2');
+require('dotenv').config();
+
 const server = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
-let onlineUsers = {}; // stores users and their WebSocket connections
-
-require('dotenv').config();
+let onlineUsers = {}; // { username: WebSocket }
 
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
@@ -15,151 +15,138 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
     if (err) {
-        console.error('Error connecting to the database: ' + err.stack);
-        return;
+        console.error('Database connection error:', err);
+    } else {
+        console.log('Connected to MySQL');
     }
-    console.log('Connected to MySQL database');
 });
 
 server.on('connection', (ws) => {
     let username = null;
 
-    // When a message is received
-    ws.on('message', (message) => {
-        const data = JSON.parse(message);
-        console.log('Received message:', data); // Debugging: Show received messages
+    ws.on('message', (msg) => {
+        let data;
+        try {
+            data = JSON.parse(msg);
+        } catch (e) {
+            console.error('Invalid JSON:', msg);
+            return;
+        }
 
         if (data.type === 'join') {
             username = data.username;
             onlineUsers[username] = ws;
-            loadOfflineMessages(username);
-            console.log(`${username} has joined.`); // Debugging: Log user joining
-            sendOnlineUsers(); // Send the updated list of online users
-            broadcast({ type: 'user_joined', username });
-
-            // Update user presence in the database
             updatePresence(username, 1);
+            loadOfflineMessages(username);
+            sendOnlineUsers();
+            broadcast({ type: 'user_joined', username });
 
         } else if (data.type === 'leave') {
             if (username) {
-                console.log(`${username} has left.`); // Debugging: Log user leaving
-                broadcast({ type: 'user_left', username });
                 updatePresence(username, 0);
                 delete onlineUsers[username];
-                sendOnlineUsers(); // Send the updated list of online users
+                sendOnlineUsers();
+                broadcast({ type: 'user_left', username });
             }
 
         } else if (data.type === 'message') {
-            const messageToSend = {
+            const payload = {
                 type: 'message',
                 from: data.from,
                 message: data.message
             };
-            broadcast(JSON.stringify(messageToSend));
-            savePublicMessage(data.from, data.message); // Save the public message
+            broadcast(payload);
+            savePublicMessage(data.from, data.message);
 
         } else if (data.type === 'private_message') {
             const toUser = data.to;
-            const message = data.message;
+            const payload = {
+                type: 'private_message',
+                from: data.from,
+                to: toUser,
+                message: data.message
+            };
 
+            // Send to recipient if online
             if (onlineUsers[toUser]) {
-                // If the user is online, send the private message directly
-                onlineUsers[toUser].send(JSON.stringify({
-                    type: 'private_message',
-                    from: data.from,
-                    to: data.to,
-                    message
-                }));
-            } else {
-                // If the user is offline, save the message to the database
-                savePrivateMessage(data.from, toUser, message);
+                onlineUsers[toUser].send(JSON.stringify(payload));
             }
+
+            // Always send a copy to sender
+            if (onlineUsers[data.from]) {
+                onlineUsers[data.from].send(JSON.stringify(payload));
+            }
+
+            // Save once only
+            savePrivateMessage(data.from, toUser, data.message);
         }
     });
 
-    // When the connection is closed
     ws.on('close', () => {
         if (username) {
-            console.log(`${username} has disconnected.`); // Debugging: Log when user disconnects
-            delete onlineUsers[username];
-            broadcast({ type: 'user_left', username });
             updatePresence(username, 0);
-            sendOnlineUsers(); // Send the updated list of online users
+            delete onlineUsers[username];
+            sendOnlineUsers();
+            broadcast({ type: 'user_left', username });
         }
     });
 
-    // Broadcast a message to all connected users
     function broadcast(data) {
-        const message = JSON.stringify(data);
-        for (const user in onlineUsers) {
-            if (onlineUsers.hasOwnProperty(user)) {
-                onlineUsers[user].send(message);
-            }
+        const msg = JSON.stringify(data);
+        for (let user in onlineUsers) {
+            onlineUsers[user].send(msg);
         }
     }
 
-    // Send the list of online users to all clients
     function sendOnlineUsers() {
-        const users = Object.keys(onlineUsers).map(username => ({ username, online: 1 }));
-        console.log('Sending online users:', users); // Debugging: Log online users
-        for (const user in onlineUsers) {
-            onlineUsers[user].send(JSON.stringify({
-                type: 'online_users',
-                users: users
-            }));
+        const userList = Object.keys(onlineUsers).map(user => ({ username: user, online: 1 }));
+        const payload = JSON.stringify({ type: 'online_users', users: userList });
+        for (let user in onlineUsers) {
+            onlineUsers[user].send(payload);
         }
     }
 
-    // Update user's online presence in the database
     function updatePresence(username, status) {
-        db.query('UPDATE users SET online = ? WHERE username = ?', [status, username], (err, result) => {
-            if (err) {
-                console.error('Error updating presence: ' + err.stack);
-            }
+        db.query("UPDATE users SET online = ? WHERE username = ?", [status, username], (err) => {
+            if (err) console.error('Presence error:', err);
         });
     }
 
-    // Save private message to the database for offline user
-    function savePrivateMessage(from, to, message) {
-        const query = 'INSERT INTO private_messages (from_user, to_user, message, timestamp) VALUES (?, ?, ?, ?)';
-        const timestamp = new Date().toISOString();
-
-        db.query(query, [from, to, message, timestamp], (err, result) => {
-            if (err) {
-                console.error('Error saving private message: ' + err.stack);
-            }
-        });
-    }
-
-    // Save public message to the database (for history)
     function savePublicMessage(from, message) {
-        const query = 'INSERT INTO messages (`from`, message, is_private) VALUES (?, ?, 0)';
-        db.query(query, [from, message], (err) => {
-            if (err) console.error('Error saving public message:', err);
+        db.query("INSERT INTO messages (`from`, message, is_private) VALUES (?, ?, 0)", [from, message], (err) => {
+            if (err) console.error('Save public message error:', err);
         });
     }
 
-    // Load offline private messages for a user
+    function savePrivateMessage(from, to, message) {
+        const timestamp = new Date().toISOString();
+        db.query("INSERT INTO private_messages (from_user, to_user, message, timestamp, delivered) VALUES (?, ?, ?, ?, ?)", 
+            [from, to, message, timestamp, onlineUsers[to] ? 1 : 0], 
+            (err) => {
+                if (err) console.error('Save private message error:', err);
+            }
+        );
+    }
+
     function loadOfflineMessages(username) {
-        db.query('SELECT * FROM private_messages WHERE to_user = ? AND delivered = 0', [username], (err, results) => {
+        db.query("SELECT * FROM private_messages WHERE to_user = ? AND delivered = 0", [username], (err, results) => {
             if (err) {
-                console.error('Error loading offline messages:', err);
+                console.error('Load offline messages error:', err);
                 return;
             }
             results.forEach(row => {
                 if (onlineUsers[username]) {
                     onlineUsers[username].send(JSON.stringify({
-                        type: 'private_message',
+                        type: "private_message",
                         from: row.from_user,
                         to: row.to_user,
                         message: row.message
                     }));
-                    // Mark message as delivered
-                    db.query('UPDATE private_messages SET delivered = 1 WHERE id = ?', [row.id]);
+                    db.query("UPDATE private_messages SET delivered = 1 WHERE id = ?", [row.id]);
                 }
             });
         });
     }
 });
 
-console.log("WebSocket server is running on port " + (process.env.PORT || 8080));
+console.log("WebSocket server running on port", process.env.PORT || 8080);
