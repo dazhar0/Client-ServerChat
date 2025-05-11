@@ -4,13 +4,15 @@ const server = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 let onlineUsers = {}; // stores users and their WebSocket connections
 
-// Set up MySQL connection
+require('dotenv').config();
+
 const db = mysql.createConnection({
-    host: 'localhost', // Change to your DB host (e.g., 'localhost' or your MySQL host)
-    user: 'root',      // Change to your DB user
-    password: '',      // Change to your DB password
-    database: 'securechat' // Change to your database name
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
+    database: process.env.DB_NAME
 });
+
 
 db.connect((err) => {
     if (err) {

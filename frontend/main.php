@@ -1,507 +1,377 @@
 <?php
 session_start();
-
-// If no session exists, show the login interface.
 if (!isset($_SESSION['username'])) {
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Login - Titan Chat</title>
-  <style>
-    /* Container centering and background */
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f9;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    /* Login Card */
-    .login-container {
-      text-align: center;
-      padding: 20px;
-    }
-    .login-card {
-      background: #fff;
-      padding: 30px 40px;
-      border-radius: 10px;
-      box-shadow: 0 6px 10px rgba(0,0,0,0.15);
-      width: 320px;
-      margin: auto;
-    }
-    h1 {
-      color: #333;
-      margin-bottom: 20px;
-    }
-    form {
-      text-align: left;
-      margin-top: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: bold;
-      color: #555;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 20px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      font-size: 14px;
-    }
-    button {
-      width: 100%;
-      background-color: #007bff;
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      transition: background-color 0.3s ease;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    .login-footer {
-      margin-top: 20px;
-      font-size: 14px;
-      color: #555;
-    }
-    .login-footer a {
-      color: #007bff;
-      text-decoration: none;
-      font-weight: bold;
-      transition: color 0.3s ease;
-    }
-    .login-footer a:hover {
-      color: #0056b3;
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-  <div class="login-container">
-    <div class="login-card">
-      <h1>Login</h1>
-      <form id="loginForm">
-        <label for="username">Username:</label>
-        <input type="text" id="username" required>
-        <label for="password">Password:</label>
-        <input type="password" id="password" required>
-        <button type="submit">Login</button>
-      </form>
-      <div class="login-footer">
-        <p>Don't have an account? <a href="register.php">Register here</a></p>
-      </div>
-    </div>
-  </div>
-  <script>
-    // Login form submission via AJAX
-    document.getElementById("loginForm").onsubmit = async function (event) {
-      event.preventDefault();
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-      try {
-        const response = await fetch("backend/login.php", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password })
-        });
-        const result = await response.json();
-        if (result.status === "success") {
-          // Reload page to load the chat interface upon successful login.
-          window.location.reload();
-        } else {
-          alert(result.message);
-        }
-      } catch (error) {
-        alert("An error occurred. Please try again.");
-      }
-    };
-  </script>
-</body>
-</html>
-<?php
-  exit();
-} else {
-  // User has logged in – load the chat interface.
-  $username = $_SESSION['username'];
+    header("Location: login.php");
+    exit();
 }
+$username = $_SESSION['username'];
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>SecureChat - Chat</title>
-  <!-- Include CryptoJS for encryption/decryption -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-  <style>
-    /* Universal reset and box sizing */
-    *, *::before, *::after {
-      box-sizing: border-box;
-    }
-    /* Center the chat interface */
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f5f5f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    /* Chat wrapper card styling */
-    .chat-wrapper {
-      width: 100%;
-      max-width: 900px;
-      height: 90vh;
-      display: flex;
-      flex-direction: column;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      background-color: #e9f5fc;
-      position: relative;
-    }
-    /* Chat container structure */
-    #chat-container {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-    }
-    /* Header branding */
-    #chat-header {
-      background: #007bff;
-      color: #fff;
-      padding: 15px;
-      text-align: center;
-      font-size: 24px;
-      font-weight: bold;
-    }
-    /* Online Users panel */
-    #online-users {
-      padding: 15px;
-      background: #4CAF50;
-      color: white;
-      max-height: 150px;
-      overflow-y: auto;
-      border-bottom: 2px solid #ddd;
-    }
-    /* Messages area styling */
-    #messages {
-      flex: 1;
-      padding: 10px;
-      overflow-y: auto;
-      background: #ffffff;
-      border-bottom: 2px solid #ddd;
-    }
-    .message {
-      margin: 5px 0;
-      padding: 8px;
-      background-color: #f1f1f1;
-      border-radius: 5px;
-    }
-    .sender {
-      font-weight: bold;
-      margin-right: 5px;
-      color: #4CAF50;
-    }
-    /* Input controls */
-    #input-area {
-      display: flex;
-      padding: 10px;
-      background: #eeeeee;
-      border-top: 2px solid #ddd;
-    }
-    #input {
-      flex: 1;
-      padding: 10px;
-      font-size: 16px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-    }
-    #send, #fileBtn {
-      padding: 10px;
-      margin-left: 5px;
-      cursor: pointer;
-      border-radius: 5px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      transition: background-color 0.3s ease;
-    }
-    #send:hover, #fileBtn:hover {
-      background-color: #45a049;
-    }
-    /* Emoji button and picker */
-    .emoji-btn {
-      font-size: 24px;
-      cursor: pointer;
-      background: none;
-      border: none;
-      margin-left: 5px;
-    }
-    .emoji-picker {
-      display: none;
-      padding: 10px;
-      border: 1px solid #ddd;
-      background: #fff;
-      position: absolute;
-      bottom: 80px;
-      right: 10px;
-      border-radius: 5px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    .emoji {
-      cursor: pointer;
-      font-size: 24px;
-      margin: 5px;
-    }
-    /* Private chat area styling */
-    .private-chat-area {
-      margin-top: 20px;
-      background-color: #e6f7ff;
-      padding: 10px;
-      border-radius: 5px;
-      border: 1px solid #ddd;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-    .chat-tab-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .close-tab {
-      cursor: pointer;
-      color: red;
-      font-size: 16px;
-    }
-    .private-message {
-      background-color: #d0f7ff;
-      margin: 5px 0;
-      padding: 8px;
-      border-radius: 5px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Titan Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            display: flex;
+            height: 100vh;
+        }
+        #chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #e9f5fc;
+        }
+        #online-users {
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            max-height: 150px;
+            overflow-y: auto;
+            border-bottom: 2px solid #ddd;
+        }
+        #messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background: white;
+            border-bottom: 2px solid #ddd;
+        }
+        #input-area {
+            display: flex;
+            padding: 10px;
+            background: #eeeeee;
+            border-top: 2px solid #ddd;
+        }
+        #input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        #send, #fileBtn {
+            padding: 10px;
+            margin-left: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+        }
+        .message, .private-message {
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+        }
+        .sender {
+            font-weight: bold;
+            margin-right: 5px;
+            color: #4CAF50;
+        }
+        .emoji-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .emoji-picker {
+            display: none;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+            position: absolute;
+            border-radius: 5px;
+            z-index: 10;
+        }
+        .emoji {
+            cursor: pointer;
+            font-size: 24px;
+            margin: 5px;
+        }
+        #private-chat-area-container {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .private-chat-area {
+            width: 300px;
+            height: 70vh;
+            background-color: #e6f7ff;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .chat-tab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .close-tab {
+            cursor: pointer;
+            color: red;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
-  <div class="chat-wrapper">
     <div id="chat-container">
-      <div id="chat-header">SecureChat</div>
-      <div id="online-users"><b>Online Users:</b> Loading...</div>
-      <div id="messages"></div>
-      <div id="input-area">
-        <input type="text" id="input" placeholder="Type your message with emojis 😊" />
-        <input type="file" id="fileInput" style="display: none;" />
-        <button id="fileBtn">📎</button>
-        <button id="send">Send</button>
-        <button id="emojiBtn" class="emoji-btn">😊</button>
-      </div>
-      <div id="emoji-picker" class="emoji-picker">
-        <span class="emoji" onclick="addEmoji('😊')">😊</span>
-        <span class="emoji" onclick="addEmoji('😢')">😢</span>
-        <span class="emoji" onclick="addEmoji('😎')">😎</span>
-        <span class="emoji" onclick="addEmoji('😂')">😂</span>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Retrieve the username from PHP
-    const username = "<?php echo $username; ?>";
-    const messagesDiv = document.getElementById("messages");
-    const input = document.getElementById("input");
-    const sendBtn = document.getElementById("send");
-    const fileInput = document.getElementById("fileInput");
-    const fileBtn = document.getElementById("fileBtn");
-    const onlineDiv = document.getElementById("online-users");
-    const emojiBtn = document.getElementById("emojiBtn");
-    const emojiPicker = document.getElementById("emoji-picker");
-
-    // Setup WebSocket for real-time messaging and encryption key
-    const ws = new WebSocket("wss://client-serverchat.onrender.com");
-    const SECRET_KEY = "your-very-strong-secret";
-    let selectedUser = null;
-
-    function encrypt(text) {
-      return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
-    }
-
-    function decrypt(text) {
-      try {
-        const bytes = CryptoJS.AES.decrypt(text, SECRET_KEY);
-        return bytes.toString(CryptoJS.enc.Utf8) || "[Failed to decrypt]";
-      } catch (e) {
-        return "[Decryption error]";
-      }
-    }
-
-    function addMessage(sender, encryptedText, isPrivate = false) {
-      const decryptedText = decrypt(encryptedText);
-      if (isPrivate) {
-        const privateChatArea = document.getElementById(`private-chat-${sender}`);
-        if (privateChatArea) {
-          const privateMsg = document.createElement("div");
-          privateMsg.className = "private-message";
-          privateMsg.innerHTML = `<span class="sender">${sender}:</span> ${decryptedText}`;
-          privateChatArea.appendChild(privateMsg);
-          privateChatArea.scrollTop = privateChatArea.scrollHeight;
-        }
-      } else {
-        const msg = document.createElement("div");
-        msg.className = "message";
-        msg.innerHTML = `<span class="sender">${sender}:</span> ${decryptedText}`;
-        messagesDiv.appendChild(msg);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      }
-    }
-
-    function updatePresence(status) {
-      fetch("backend/update_presence.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, online: status })
-      });
-    }
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "join", username }));
-      updatePresence(1);
-    };
-
-    ws.onmessage = (event) => {
-      let data;
-      try {
-        data = JSON.parse(event.data);
-      } catch (e) {
-        console.error("Invalid JSON:", event.data);
-        return;
-      }
-      if (data.type === "message" || data.type === "private_message") {
-        const isPrivate = data.type === "private_message";
-        addMessage(data.username, data.message, isPrivate);
-      }
-      if (data.type === "online_users") {
-        updateOnlineUsers(data.users);
-      }
-    };
-
-    sendBtn.onclick = () => {
-      const text = input.value.trim();
-      if (text !== "") {
-        const payload = {
-          type: "message",
-          username,
-          message: encrypt(text)
-        };
-        ws.send(JSON.stringify(payload));
-        input.value = "";
-      }
-    };
-
-    emojiBtn.onclick = () => {
-      emojiPicker.style.display = emojiPicker.style.display === "block" ? "none" : "block";
-    };
-
-    function addEmoji(emoji) {
-      input.value += emoji;
-      emojiPicker.style.display = "none";
-    }
-
-    fileBtn.onclick = () => fileInput.click();
-
-    fileInput.onchange = () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
-      fetch("backend/upload_files.php", {
-        method: "POST",
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.url) {
-          const encryptedMessage = encrypt(`[File: ${file.name}]\n${data.url}`);
-          const payload = {
-            type: selectedUser ? "private_message" : "message",
-            username,
-            to: selectedUser || undefined,
-            message: encryptedMessage
-          };
-          ws.send(JSON.stringify(payload));
-        } else {
-          alert("Upload failed");
-        }
-        selectedUser = null;
-      });
-    };
-
-    function updateOnlineUsers(users) {
-      onlineDiv.innerHTML = "<b>Online Users:</b><br>" +
-        users.filter(u => u.online == 1)
-          .map(u => `<span class="user" data-username="${u.username}">${u.username}</span>`)
-          .join("<br>");
-      
-      document.querySelectorAll('.user').forEach(userEl => {
-        userEl.onclick = () => {
-          const to = userEl.dataset.username;
-          if (to === username) return alert("You can't message yourself.");
-          openPrivateChat(to);
-        };
-      });
-    }
-
-    function openPrivateChat(to) {
-      if (document.getElementById(`private-chat-${to}`)) return;
-      const privateChatArea = document.createElement("div");
-      privateChatArea.id = `private-chat-${to}`;
-      privateChatArea.className = "private-chat-area";
-      privateChatArea.innerHTML = `
-        <div class="chat-tab-header">
-          <b>Private Chat with ${to}</b>
-          <span class="close-tab" onclick="closePrivateChat('${to}')">X</span>
+        <div id="online-users"><b>Online Users:</b> Loading...</div>
+        <div id="messages"></div>
+        <div id="input-area">
+            <input type="text" id="input" placeholder="Type your message..." />
+            <input type="file" id="fileInput" style="display: none;" />
+            <button id="fileBtn">📎</button>
+            <button id="send">Send</button>
+            <button id="emojiBtn" class="emoji-btn">😊</button>
         </div>
-        <div id="private-chat-${to}-messages"></div>
-      `;
-      messagesDiv.appendChild(privateChatArea);
-      selectedUser = to;
-    }
+        <div id="emoji-picker" class="emoji-picker">
+            <span class="emoji" onclick="addEmoji('😊')">😊</span>
+            <span class="emoji" onclick="addEmoji('😢')">😢</span>
+            <span class="emoji" onclick="addEmoji('😎')">😎</span>
+            <span class="emoji" onclick="addEmoji('😂')">😂</span>
+        </div>
+    </div>
 
-    function closePrivateChat(to) {
-      const chatArea = document.getElementById(`private-chat-${to}`);
-      if (chatArea) chatArea.remove();
-    }
+    <div id="private-chat-area-container"></div>
 
-    setInterval(() => {
-      fetchOnlineUsers();
-    }, 5000);
+    <script>
+        const username = "<?php echo $username; ?>";
+        const ws = new WebSocket("wss://client-serverchat.onrender.com");
+        const SECRET_KEY = "your-very-strong-secret";
+        let selectedUser = null;
 
-    function fetchOnlineUsers() {
-      fetch("backend/presence.php")
-        .then(res => res.json())
-        .then(users => updateOnlineUsers(users));
-    }
+        function encrypt(text) {
+            return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
+        }
 
-    window.addEventListener("beforeunload", () => {
-      ws.send(JSON.stringify({ type: "leave", username }));
-      updatePresence(0);
-    });
+        function decrypt(text) {
+            try {
+                return CryptoJS.AES.decrypt(text, SECRET_KEY).toString(CryptoJS.enc.Utf8) || "[Decryption failed]";
+            } catch {
+                return "[Invalid message]";
+            }
+        }
 
-    ws.onclose = () => {
-      updatePresence(0);
-    };
-  </script>
+        function addEmoji(emoji) {
+            document.getElementById("input").value += emoji;
+            document.getElementById("emoji-picker").style.display = "none";
+        }
+
+        function addMessage(sender, encryptedText, isPrivate = false, peer = null, container = null) {
+            const text = decrypt(encryptedText);
+            const targetDiv = container || (isPrivate ? document.getElementById(`private-chat-${peer}-messages`) : document.getElementById("messages"));
+            if (!targetDiv) return;
+            const msg = document.createElement("div");
+            msg.className = isPrivate ? "private-message" : "message";
+            msg.innerHTML = `<span class="sender">${sender}${isPrivate ? " (private)" : ""}:</span> ${text}`;
+            targetDiv.appendChild(msg);
+            targetDiv.scrollTop = targetDiv.scrollHeight;
+        }
+
+        function updatePresence(status) {
+            fetch("backend/update_presence.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, online: status })
+            });
+        }
+
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: "join", username }));
+            updatePresence(1);
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === "message") {
+                addMessage(data.username, data.message);
+            } else if (data.type === "private_message") {
+                const sender = data.from;
+                const peer = sender === username ? data.to : sender;
+                openPrivateChat(peer);
+                addMessage(sender, data.message, true, peer);
+            } else if (data.type === "online_users") {
+                updateOnlineUsers(data.users);
+            }
+        };
+
+        ws.onclose = () => updatePresence(0);
+        window.addEventListener("beforeunload", () => {
+            if (ws.readyState === WebSocket.OPEN)
+                ws.send(JSON.stringify({ type: "leave", username }));
+            updatePresence(0);
+        });
+
+        document.getElementById("send").onclick = () => {
+            const input = document.getElementById("input");
+            const text = input.value.trim();
+            if (!text) return;
+            const payload = {
+                type: selectedUser ? "private_message" : "message",
+                from: username,
+                to: selectedUser || undefined,
+                message: encrypt(text)
+            };
+            ws.send(JSON.stringify(payload));
+            input.value = "";
+        };
+
+        document.getElementById("fileBtn").onclick = () => {
+            document.getElementById("fileInput").click();
+        };
+
+        document.getElementById("fileInput").onchange = () => {
+            const file = document.getElementById("fileInput").files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append("file", file);
+            fetch("backend/upload_files.php", {
+                method: "POST",
+                body: formData
+            }).then(res => res.json()).then(data => {
+                if (data.url) {
+                    const fileMsg = `[File: ${file.name}]\n${data.url}`;
+                    const payload = {
+                        type: selectedUser ? "private_message" : "message",
+                        from: username,
+                        to: selectedUser || undefined,
+                        message: encrypt(fileMsg)
+                    };
+                    ws.send(JSON.stringify(payload));
+                } else alert("Upload failed.");
+            });
+        };
+
+        document.getElementById("emojiBtn").onclick = () => {
+            const picker = document.getElementById("emoji-picker");
+            picker.style.display = picker.style.display === "block" ? "none" : "block";
+        };
+
+        function updateOnlineUsers(users) {
+            const onlineDiv = document.getElementById("online-users");
+            onlineDiv.innerHTML = "<b>Online Users:</b><br>" +
+                users.filter(u => u.online == 1)
+                    .map(u => `<span class="user" data-username="${u.username}">${u.username}</span>`)
+                    .join("<br>");
+            document.querySelectorAll(".user").forEach(el => {
+                el.onclick = () => {
+                    const to = el.dataset.username;
+                    if (to !== username) openPrivateChat(to);
+                };
+            });
+        }
+
+        function openPrivateChat(to) {
+            if (document.getElementById(`private-chat-${to}`)) {
+                selectedUser = to;
+                return;
+            }
+
+            const chatArea = document.createElement("div");
+            chatArea.className = "private-chat-area";
+            chatArea.id = `private-chat-${to}`;
+            chatArea.innerHTML = `
+                <div class="chat-tab-header">
+                    <b>Private Chat with ${to}</b>
+                    <span class="close-tab" onclick="closePrivateChat('${to}')">X</span>
+                </div>
+                <div id="private-chat-${to}-messages" style="height: 200px; overflow-y:auto;"></div>
+                <input type="text" class="private-input" id="private-input-${to}" placeholder="Type a message" />
+                <input type="file" id="fileInput-${to}" style="display:none;" />
+                <button onclick="sendPrivateMessage('${to}')">Send</button>
+                <button onclick="document.getElementById('fileInput-${to}').click();">📎</button>
+                <button onclick="toggleEmojiPicker('${to}')">😊</button>
+                <div id="emoji-picker-${to}" class="emoji-picker">
+                    <span class="emoji" onclick="addEmojiTo('${to}', '😊')">😊</span>
+                    <span class="emoji" onclick="addEmojiTo('${to}', '😂')">😂</span>
+                    <span class="emoji" onclick="addEmojiTo('${to}', '😢')">😢</span>
+                    <span class="emoji" onclick="addEmojiTo('${to}', '😎')">😎</span>
+                </div>
+            `;
+            document.getElementById("private-chat-area-container").appendChild(chatArea);
+            selectedUser = to;
+
+            document.getElementById(`fileInput-${to}`).onchange = () => {
+                const file = document.getElementById(`fileInput-${to}`).files[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append("file", file);
+                fetch("backend/upload_files.php", {
+                    method: "POST",
+                    body: formData
+                }).then(res => res.json()).then(data => {
+                    if (data.url) {
+                        const fileMsg = `[File: ${file.name}]\n${data.url}`;
+                        const payload = {
+                            type: "private_message",
+                            from: username,
+                            to,
+                            message: encrypt(fileMsg)
+                        };
+                        ws.send(JSON.stringify(payload));
+                    }
+                });
+            };
+
+            fetch(`backend/get_private_messages.php?user1=${username}&user2=${to}`)
+                .then(res => res.json())
+                .then(messages => {
+                    const msgContainer = document.getElementById(`private-chat-${to}-messages`);
+                    messages.forEach(msg => addMessage(msg.from, msg.message, true, to, msgContainer));
+                });
+        }
+
+        function sendPrivateMessage(to) {
+            const input = document.getElementById(`private-input-${to}`);
+            const msg = input.value.trim();
+            if (!msg) return;
+            const payload = {
+                type: "private_message",
+                from: username,
+                to,
+                message: encrypt(msg)
+            };
+            ws.send(JSON.stringify(payload));
+            addMessage(username, payload.message, true, to); // show your sent message instantly
+            input.value = "";
+        }
+
+        function closePrivateChat(to) {
+            const el = document.getElementById(`private-chat-${to}`);
+            if (el) el.remove();
+            selectedUser = null;
+        }
+
+        function toggleEmojiPicker(to) {
+            const picker = document.getElementById(`emoji-picker-${to}`);
+            picker.style.display = picker.style.display === "block" ? "none" : "block";
+        }
+
+        function addEmojiTo(to, emoji) {
+            const input = document.getElementById(`private-input-${to}`);
+            input.value += emoji;
+            toggleEmojiPicker(to);
+        }
+
+        setInterval(() => {
+            fetch("backend/presence.php")
+                .then(res => res.json())
+                .then(data => updateOnlineUsers(data));
+        }, 5000);
+    </script>
 </body>
 </html>
