@@ -49,7 +49,7 @@
         // Sending text messages
         document.getElementById("sendButton").onclick = () => {
             const message = document.getElementById("messageInput").value;
-            ws.send(JSON.stringify({ type: "message", sender: username, message }));
+            ws.send(JSON.stringify({ type: "message", username, message }));
             document.getElementById("messageInput").value = ''; // Clear input field
         };
 

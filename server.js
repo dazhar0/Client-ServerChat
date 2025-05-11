@@ -35,14 +35,13 @@ wss.on('connection', (ws) => {
 
   function broadcastMessage(data) {
     users.forEach(user => {
-      if (user.ws !== ws) {
-        user.ws.send(JSON.stringify({
-          type: "message",
-          username: data.username,
-          message: data.message
-        }));
-      }
+      user.ws.send(JSON.stringify({
+        type: "message",
+        username: data.username,
+        message: data.message
+      }));
     });
+    
   }
 
   function sendPresenceUpdate() {

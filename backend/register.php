@@ -1,23 +1,35 @@
 <?php
-// CORS headers
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json");
 
-// Database connection
 include 'db.php';
 
-// Get input data from the frontend
 $data = json_decode(file_get_contents('php://input'), true);
 
+$email = $data['email'];
 $username = $data['username'];
-$password = password_hash($data['password'], PASSWORD_BCRYPT); // Hash the password
+$password = password_hash($data['password'], PASSWORD_BCRYPT);
 
-// Query to insert new user into the database
-$query = "INSERT INTO users (username, password) VALUES (?, ?)";
+// Check if the username already exists
+$query = "SELECT * FROM users WHERE username = ?";
 $stmt = $conn->prepare($query);
-$stmt->bind_param("ss", $username, $password);
+$stmt->bind_param("s", $username);
 $stmt->execute();
+$result = $stmt->get_result();
 
-echo json_encode(["status" => "success", "message" => "Registration successful"]);
+if ($result->num_rows > 0) {
+    echo json_encode(["status" => "error", "message" => "Username already exists"]);
+    exit;
+}
+
+// Insert new user into the database
+$query = "INSERT INTO users (email, username, password) VALUES (?, ?, ?)";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("sss", $email, $username, $password);
+
+if ($stmt->execute()) {
+    echo json_encode(["status" => "success", "message" => "Registration successful"]);
+} else {
+    echo json_encode(["status" => "error", "message" => "Error occurred during registration"]);
+}
 ?>

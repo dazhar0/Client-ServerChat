@@ -3,36 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - SecureChat</title>
+    <title>Login - SecureChat</title>
 </head>
 <body>
-    <h1>Register</h1>
-    <form id="registerForm">
+    <h1>Login</h1>
+    <form id="loginForm">
         <label for="username">Username:</label><br>
         <input type="text" id="username" required><br><br>
         <label for="password">Password:</label><br>
         <input type="password" id="password" required><br><br>
-        <button type="submit">Register</button>
+        <button type="submit">Login</button>
     </form>
-    <p>Already have an account? <a href="login.html">Login here</a></p>
+    <p>Don't have an account? <a href="register.php">Register here</a></p>
 
     <script>
-        document.getElementById("registerForm").onsubmit = async function (event) {
+        document.getElementById("loginForm").onsubmit = async function (event) {
             event.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
-            const response = await fetch('https://chattitans.42web.io/backend/register.php', {
+            const response = await fetch('backend/login.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
 
-            const result = await response.text();
-            if (result === "success") {
-                window.location.href = 'login.html';
+            const result = await response.json();
+            if (result.status === "success") {
+                localStorage.setItem("username", username);
+                window.location.href = 'chat.php';  // Redirect to the chat page after successful login
             } else {
-                alert("Registration failed!");
+                alert(result.message);
             }
         }
     </script>
