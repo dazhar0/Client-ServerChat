@@ -2,12 +2,10 @@
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     header('Content-Type: application/json');
 
-    $data = json_decode(file_get_contents("php://input"), true);
-
-    $email = trim($data['email'] ?? '');
-    $username = trim($data['username'] ?? '');
-    $password = trim($data['password'] ?? '');
-    $recaptchaResponse = $data['g-recaptcha-response'] ?? '';
+    $email = trim($_POST['email'] ?? '');
+    $username = trim($_POST['username'] ?? '');
+    $password = trim($_POST['password'] ?? '');
+    $recaptchaResponse = $_POST['g-recaptcha-response'] ?? '';
 
     if (!$email || !$username || !$password || !$recaptchaResponse) {
         echo json_encode(["status" => "error", "message" => "Missing required fields."]);

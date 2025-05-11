@@ -130,11 +130,19 @@
         return;
       }
 
+      const formData = new URLSearchParams();
+      formData.append('email', email);
+      formData.append('username', username);
+      formData.append('password', password);
+      formData.append('g-recaptcha-response', captcha);
+
       try {
-        const response = await fetch('backend.php', {
+        const response = await fetch('backend/register.php', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, username, password, 'g-recaptcha-response': captcha })
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString()
         });
         const result = await response.json();
         if (result.status === "success") {
