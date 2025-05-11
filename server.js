@@ -1,20 +1,13 @@
-const fs = require('fs');
 const https = require('https');
 const WebSocket = require('ws');
 
-// Read your SSL certificate files
-const serverOptions = {
-  key: fs.readFileSync('path/to/your/ssl/key.pem'),  // SSL private key
-  cert: fs.readFileSync('path/to/your/ssl/certificate.pem'),  // SSL certificate
-};
-
-// Create the HTTPS server
-const server = https.createServer(serverOptions, (req, res) => {
+// Create an HTTPS server (Render will automatically handle SSL)
+const server = https.createServer((req, res) => {
   res.writeHead(200);
   res.end('Secure WebSocket Server');
 });
 
-// Create the WebSocket server attached to the HTTPS server
+// Create WebSocket server attached to the HTTPS server
 const wss = new WebSocket.Server({ server });
 
 let users = []; // To keep track of online users
@@ -65,7 +58,7 @@ wss.on('connection', (ws) => {
   }
 });
 
-// Start the server on port 3000 (or any port)
-server.listen(process.env.PORT || 3000, () => {
-  console.log('WebSocket server listening on wss://localhost:3000');
+// Start the server on the port provided by Render
+server.listen(process.env.PORT || 443, () => {
+  console.log('WebSocket server listening on secure wss://');
 });
