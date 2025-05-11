@@ -1,38 +1,40 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json");
-include 'db.php';
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    header('Content-Type: application/json');
 
-$data = json_decode(file_get_contents('php://input'), true);
-if (!$data || !isset($data['email'], $data['username'], $data['password'])) {
-    echo json_encode(["status" => "error", "message" => "Invalid input"]);
-    exit;
-}
+    $data = json_decode(file_get_contents("php://input"), true);
 
-$email = trim($data['email']);
-$username = trim($data['username']);
-$password = password_hash(trim($data['password']), PASSWORD_BCRYPT);
+    $email = trim($data['email'] ?? '');
+    $username = trim($data['username'] ?? '');
+    $password = trim($data['password'] ?? '');
+    $recaptchaResponse = $data['g-recaptcha-response'] ?? '';
 
-// Check for existing username
-$query = "SELECT * FROM users WHERE username = ?";
-$stmt = $conn->prepare($query);
-$stmt->bind_param("s", $username);
-$stmt->execute();
-$result = $stmt->get_result();
+    if (!$email || !$username || !$password || !$recaptchaResponse) {
+        echo json_encode(["status" => "error", "message" => "Missing required fields."]);
+        exit();
+    }
 
-if ($result->num_rows > 0) {
-    echo json_encode(["status" => "error", "message" => "Username already exists"]);
-    exit;
-}
+    // Verify CAPTCHA
+    $secretKey = "6LdWeDUrAAAAABUeHMHApUy09VxayBj0mhE8wa-s";
+    $verifyResponse = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=$secretKey&response=$recaptchaResponse");
+    $responseData = json_decode($verifyResponse, true);
 
-// Insert new user
-$query = "INSERT INTO users (email, username, password) VALUES (?, ?, ?)";
-$stmt = $conn->prepare($query);
-$stmt->bind_param("sss", $email, $username, $password);
+    if (!$responseData["success"]) {
+        echo json_encode(["status" => "error", "message" => "CAPTCHA failed"]);
+        exit();
+    }
 
-if ($stmt->execute()) {
-    echo json_encode(["status" => "success", "message" => "Registration successful"]);
-} else {
-    echo json_encode(["status" => "error", "message" => "Error during registration"]);
+    require_once "backend/db.php";
+
+    $hashed = password_hash($password, PASSWORD_DEFAULT);
+    $stmt = $conn->prepare("INSERT INTO users (email, username, password) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $email, $username, $hashed);
+
+    if ($stmt->execute()) {
+        echo json_encode(["status" => "success"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Username or email may already exist."]);
+    }
+    exit();
 }
 ?>
