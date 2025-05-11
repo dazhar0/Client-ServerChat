@@ -75,6 +75,21 @@ server.on('connection', (ws) => {
             // Save once only
             savePrivateMessage(data.from, toUser, data.message);
         }
+
+        // Fetch old messages when a user opens a chat with another user
+        if (data.type === 'open_private_chat') {
+            const toUser = data.to;
+            const fromUser = data.from;
+            
+            // Fetch old private messages
+            fetchOldMessages(fromUser, toUser, (messages) => {
+                // Send old messages to the client
+                ws.send(JSON.stringify({
+                    type: 'old_private_messages',
+                    messages: messages
+                }));
+            });
+        }
     });
 
     ws.on('close', () => {
@@ -85,6 +100,31 @@ server.on('connection', (ws) => {
             broadcast({ type: 'user_left', username });
         }
     });
+
+    // Function to fetch old private messages
+    function fetchOldMessages(fromUser, toUser, callback) {
+        db.query(
+            "SELECT * FROM private_messages WHERE (from_user = ? AND to_user = ?) OR (from_user = ? AND to_user = ?) ORDER BY timestamp ASC",
+            [fromUser, toUser, toUser, fromUser],
+            (err, results) => {
+                if (err) {
+                    console.error('Error fetching old messages:', err);
+                    callback([]);
+                    return;
+                }
+
+                // Format messages and pass to callback
+                const messages = results.map(row => ({
+                    from_user: row.from_user,
+                    to_user: row.to_user,
+                    message: row.message,
+                    timestamp: row.timestamp
+                }));
+
+                callback(messages);
+            }
+        );
+    }
 
     function broadcast(data) {
         const msg = JSON.stringify(data);

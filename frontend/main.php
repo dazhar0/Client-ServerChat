@@ -369,10 +369,23 @@ $username = $_SESSION['username'];
                 to,
                 message: encrypt(msg)
             };
-            ws.send(JSON.stringify(payload));
-            addMessage(username, payload.message, true, to); // show your sent message instantly
+            ws.send(JSON.stringify(payload)); // Send message via WebSocket
+            
+            // Save the private message to the database via AJAX
+            fetch("backend/save_private_message.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    from: username,
+                    to,
+                    message: msg
+                })
+            });
+
+            addMessage(username, payload.message, true, to); // Show your sent message instantly
             input.value = "";
         }
+
 
         function closePrivateChat(to) {
             const el = document.getElementById(`private-chat-${to}`);
