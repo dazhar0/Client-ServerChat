@@ -177,12 +177,15 @@ $username = $_SESSION['username'];
             const text = decrypt(encryptedText);
             const targetDiv = container || (isPrivate ? document.getElementById(`private-chat-${peer}-messages`) : document.getElementById("messages"));
             if (!targetDiv) return;
+
+            const senderName = sender === username ? "You" : sender;
             const msg = document.createElement("div");
             msg.className = isPrivate ? "private-message" : "message";
-            msg.innerHTML = `<span class="sender">${sender}${isPrivate ? " (private)" : ""}:</span> ${text}`;
+            msg.innerHTML = `<span class="sender">${senderName}${isPrivate ? " (private)" : ""}:</span> ${text}`;
             targetDiv.appendChild(msg);
             targetDiv.scrollTop = targetDiv.scrollHeight;
         }
+
 
         function updatePresence(status) {
             fetch("backend/update_presence.php", {
