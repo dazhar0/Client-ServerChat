@@ -1,4 +1,9 @@
 <?php
+// Enable error reporting (for debugging)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     header('Content-Type: application/json');
 
@@ -22,7 +27,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit();
     }
 
-    require_once "backend/db.php";
+    // Correct db.php path
+    require_once "db.php";
 
     $hashed = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $conn->prepare("INSERT INTO users (email, username, password) VALUES (?, ?, ?)");
