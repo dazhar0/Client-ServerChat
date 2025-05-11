@@ -13,7 +13,6 @@ const db = mysql.createConnection({
     database: process.env.DB_NAME
 });
 
-
 db.connect((err) => {
     if (err) {
         console.error('Error connecting to the database: ' + err.stack);
@@ -53,10 +52,11 @@ server.on('connection', (ws) => {
         } else if (data.type === 'message') {
             const messageToSend = {
                 type: 'message',
-                from: data.from, // <- Make sure this is included as 'username'
+                from: data.from,
                 message: data.message
             };
             broadcast(JSON.stringify(messageToSend));
+            savePublicMessage(data.from, data.message); // Save the public message
 
         } else if (data.type === 'private_message') {
             const toUser = data.to;
@@ -131,8 +131,17 @@ server.on('connection', (ws) => {
         });
     }
 
+    // Save public message to the database (for history)
+    function savePublicMessage(from, message) {
+        const query = 'INSERT INTO messages (`from`, message, is_private) VALUES (?, ?, 0)';
+        db.query(query, [from, message], (err) => {
+            if (err) console.error('Error saving public message:', err);
+        });
+    }
+
+    // Load offline private messages for a user
     function loadOfflineMessages(username) {
-        db.query('SELECT * FROM private_messages WHERE to_user = ?', [username], (err, results) => {
+        db.query('SELECT * FROM private_messages WHERE to_user = ? AND delivered = 0', [username], (err, results) => {
             if (err) {
                 console.error('Error loading offline messages:', err);
                 return;
@@ -145,14 +154,12 @@ server.on('connection', (ws) => {
                         to: row.to_user,
                         message: row.message
                     }));
+                    // Mark message as delivered
+                    db.query('UPDATE private_messages SET delivered = 1 WHERE id = ?', [row.id]);
                 }
             });
-    
-            // Optional: Delete messages after delivery
-            db.query('DELETE FROM private_messages WHERE to_user = ?', [username]);
         });
     }
-    
 });
 
-console.log("WebSocket server is running on wss://client-serverchat.onrender.com");
+console.log("WebSocket server is running on port " + (process.env.PORT || 8080));
