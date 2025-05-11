@@ -1,13 +1,21 @@
 <?php
-if (isset($_FILES['file'])) {
-    $file = $_FILES['file'];
-    $targetDir = "../uploads/";
-    $targetFile = $targetDir . basename($file["name"]);
-    
-    if (move_uploaded_file($file["tmp_name"], $targetFile)) {
-        echo json_encode(['url' => 'https://chattitans.42web.io/uploads/' . basename($file["name"])]);
+include 'db.php';
+header("Content-Type: application/json");
+
+if ($_FILES['file']['error'] === UPLOAD_ERR_OK) {
+    $fileTmpPath = $_FILES['file']['tmp_name'];
+    $fileName = $_FILES['file']['name'];
+    $fileType = $_FILES['file']['type'];
+    $fileSize = $_FILES['file']['size'];
+    $uploadDir = 'uploads/';
+
+    $dest_path = $uploadDir . $fileName;
+    if (move_uploaded_file($fileTmpPath, $dest_path)) {
+        echo json_encode(['url' => $dest_path]);
     } else {
-        echo json_encode(['error' => 'File upload failed.']);
+        echo json_encode(['error' => 'File upload failed']);
     }
+} else {
+    echo json_encode(['error' => 'No file uploaded']);
 }
 ?>
