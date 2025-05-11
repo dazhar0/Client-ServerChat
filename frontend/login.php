@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Titan Chat</title>
 </head>
 <body>
@@ -19,23 +18,22 @@
     <script>
         document.getElementById("loginForm").onsubmit = async function (event) {
             event.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
 
-            const response = await fetch('backend/login.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const response = await fetch("backend/login.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password })
             });
 
             const result = await response.json();
             if (result.status === "success") {
-                localStorage.setItem("username", username);
-                window.location.href = 'main.php';  // Redirect to the chat page after successful login
+                window.location.href = "main.php";
             } else {
                 alert(result.message);
             }
-        }
+        };
     </script>
 </body>
 </html>

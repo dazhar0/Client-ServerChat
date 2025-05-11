@@ -13,21 +13,117 @@ $username = $_SESSION['username'];
     <meta charset="UTF-8">
     <title>SecureChat - Chat</title>
     <style>
-        body { font-family: Arial; margin: 0; padding: 0; background: #f5f5f5; }
-        #chat-container { display: flex; flex-direction: column; height: 100vh; }
-        #online-users { padding: 10px; background: #ddd; max-height: 100px; overflow-y: auto; }
-        #messages { flex: 1; padding: 10px; overflow-y: auto; background: #fff; }
-        #input-area { display: flex; padding: 10px; background: #eee; }
-        #input { flex: 1; padding: 10px; font-size: 16px; }
-        #send, #fileBtn { padding: 10px; margin-left: 5px; cursor: pointer; }
-        .message { margin: 5px 0; }
-        .sender { font-weight: bold; margin-right: 5px; }
-        .user { cursor: pointer; color: blue; }
-        .notification { color: red; font-size: 0.9em; }
-        .emoji-btn { font-size: 24px; cursor: pointer; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #e9f5fc;
+        }
+        #online-users {
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            max-height: 150px;
+            overflow-y: auto;
+            border-bottom: 2px solid #ddd;
+        }
+        #messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background: white;
+            border-bottom: 2px solid #ddd;
+        }
+        #input-area {
+            display: flex;
+            padding: 10px;
+            background: #eeeeee;
+            border-top: 2px solid #ddd;
+        }
+        #input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        #send, #fileBtn {
+            padding: 10px;
+            margin-left: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+        }
+        .sender {
+            font-weight: bold;
+            margin-right: 5px;
+            color: #4CAF50;
+        }
+        .user {
+            cursor: pointer;
+            color: #4CAF50;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        .emoji-btn {
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .emoji-picker {
+            display: none;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+            position: absolute;
+            bottom: 80px;
+            right: 10px;
+            border-radius: 5px;
+        }
+        .emoji {
+            cursor: pointer;
+            font-size: 24px;
+            margin: 5px;
+        }
+        .private-chat-area {
+            margin-top: 20px;
+            background-color: #e6f7ff;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .chat-tab-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .close-tab {
+            cursor: pointer;
+            color: red;
+            font-size: 16px;
+        }
+        .private-message {
+            background-color: #d0f7ff;
+        }
+        .sent-message {
+            background-color: #f1f1f1;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 <body>
     <div id="chat-container">
@@ -40,7 +136,12 @@ $username = $_SESSION['username'];
             <button id="send">Send</button>
             <button id="emojiBtn" class="emoji-btn">😊</button>
         </div>
-        <div class="g-recaptcha" data-sitekey="YOUR_SITE_KEY"></div>
+        <div id="emoji-picker" class="emoji-picker">
+            <span class="emoji" onclick="addEmoji('😊')">😊</span>
+            <span class="emoji" onclick="addEmoji('😢')">😢</span>
+            <span class="emoji" onclick="addEmoji('😎')">😎</span>
+            <span class="emoji" onclick="addEmoji('😂')">😂</span>
+        </div>
     </div>
 
     <script>
@@ -52,12 +153,11 @@ $username = $_SESSION['username'];
         const fileBtn = document.getElementById("fileBtn");
         const onlineDiv = document.getElementById("online-users");
         const emojiBtn = document.getElementById("emojiBtn");
-        const recaptchaResponse = document.querySelector('.g-recaptcha');
+        const emojiPicker = document.getElementById("emoji-picker");
 
-        const ws = new WebSocket("wss://client-serverchat.onrender.com"); // WebSocket URL
+        const ws = new WebSocket("wss://client-serverchat.onrender.com");
         const SECRET_KEY = "your-very-strong-secret";
 
-        // Encrypt and decrypt messages
         function encrypt(text) {
             return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
         }
@@ -67,25 +167,24 @@ $username = $_SESSION['username'];
             return bytes.toString(CryptoJS.enc.Utf8) || "[Failed to decrypt]";
         }
 
-        // Display a message in the chat
         function addMessage(sender, text, isPrivate = false) {
             const msg = document.createElement("div");
             msg.className = "message";
             msg.innerHTML = `<span class="sender">${sender}${isPrivate ? " (private)" : ""}:</span> ${decrypt(text)}`;
-            messagesDiv.appendChild(msg);
+            if (isPrivate) {
+                const privateChatArea = document.getElementById(`private-chat-${sender}`);
+                if (privateChatArea) {
+                    const privateMsg = document.createElement("div");
+                    privateMsg.className = 'private-message';
+                    privateMsg.innerHTML = `<span class="sender">${sender}:</span> ${decrypt(text)}`;
+                    privateChatArea.appendChild(privateMsg);
+                }
+            } else {
+                messagesDiv.appendChild(msg);
+            }
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Show notifications in the chat
-        function addNotification(message) {
-            const notification = document.createElement("div");
-            notification.className = "notification";
-            notification.innerText = message;
-            messagesDiv.appendChild(notification);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        // Update presence status
         function updatePresence(status) {
             fetch("backend/update_presence.php", {
                 method: "POST",
@@ -94,26 +193,22 @@ $username = $_SESSION['username'];
             });
         }
 
-        // WebSocket on open
         ws.onopen = () => {
             ws.send(JSON.stringify({ type: "join", username }));
             updatePresence(1);
         };
 
-        // WebSocket on message
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "message" || data.type === "private_message") {
                 const isPrivate = data.type === "private_message";
                 addMessage(data.username, data.message, isPrivate);
             }
-
             if (data.type === "online_users") {
                 updateOnlineUsers(data.users);
             }
         };
 
-        // Send a regular chat message
         sendBtn.onclick = () => {
             const text = input.value.trim();
             if (text !== "") {
@@ -122,31 +217,24 @@ $username = $_SESSION['username'];
                     username,
                     message: encrypt(text)
                 };
-
-                // ReCAPTCHA validation before sending message
-                if (grecaptcha.getResponse()) {
-                    ws.send(JSON.stringify(payload));
-                    input.value = "";
-                } else {
-                    alert("Please complete the CAPTCHA.");
-                }
+                ws.send(JSON.stringify(payload));
+                input.value = "";
             }
         };
 
-        // Handle emoji insertion
         emojiBtn.onclick = () => {
-            const emoji = prompt("Enter emoji: 😊😢😎");
-            if (emoji) {
-                input.value += emoji;
-            }
+            emojiPicker.style.display = emojiPicker.style.display === "block" ? "none" : "block";
         };
 
-        // Handle file input and upload
+        function addEmoji(emoji) {
+            input.value += emoji;
+            emojiPicker.style.display = "none";
+        }
+
         fileBtn.onclick = () => fileInput.click();
 
-        let selectedUser = null; // for private file send
+        let selectedUser = null;
 
-        // Handle file changes
         fileInput.onchange = () => {
             const file = fileInput.files[0];
             if (!file) return;
@@ -175,86 +263,60 @@ $username = $_SESSION['username'];
             });
         };
 
-        // Update the list of online users
         function updateOnlineUsers(users) {
             onlineDiv.innerHTML = "<b>Online Users:</b><br>" +
                 users.filter(u => u.online == 1)
                     .map(u => `<span class="user" data-username="${u.username}">${u.username}</span>`)
                     .join("<br>");
 
-            // Enable clicking on online users to send private messages
             document.querySelectorAll('.user').forEach(userEl => {
                 userEl.onclick = () => {
                     const to = userEl.dataset.username;
                     if (to === username) return alert("You can't message yourself.");
-                    const text = prompt(`Send private message to ${to}:`);
-                    if (text) {
-                        const payload = {
-                            type: "private_message",
-                            from: username,
-                            to: to,
-                            message: encrypt(text)
-                        };
-                        ws.send(JSON.stringify(payload));
-                    }
-                    // set for private file send
-                    selectedUser = to;
+                    openPrivateChat(to);
                 };
             });
         }
 
-        // Fetch online users at regular intervals
+        function openPrivateChat(to) {
+            if (document.getElementById(`private-chat-${to}`)) return;
+
+            const privateChatArea = document.createElement("div");
+            privateChatArea.id = `private-chat-${to}`;
+            privateChatArea.className = "private-chat-area";
+            privateChatArea.innerHTML = `
+                <div class="chat-tab-header">
+                    <b>Private Chat with ${to}</b>
+                    <span class="close-tab" onclick="closePrivateChat('${to}')">X</span>
+                </div>
+                <div id="private-chat-${to}-messages"></div>
+            `;
+            document.getElementById("messages").appendChild(privateChatArea);
+            selectedUser = to;
+        }
+
+        function closePrivateChat(to) {
+            const chatArea = document.getElementById(`private-chat-${to}`);
+            if (chatArea) chatArea.remove();
+        }
+
         setInterval(() => {
             fetchOnlineUsers();
         }, 5000);
 
-        // Fetch online users
         function fetchOnlineUsers() {
             fetch("backend/presence.php")
                 .then(res => res.json())
-                .then(users => {
-                    updateOnlineUsers(users);
-                });
+                .then(users => updateOnlineUsers(users));
         }
 
-        // Update presence status when leaving
         window.addEventListener("beforeunload", () => {
             ws.send(JSON.stringify({ type: "leave", username }));
             updatePresence(0);
         });
 
-        // WebSocket on close
         ws.onclose = () => {
             updatePresence(0);
-        };
-
-        // Handle file input changes for uploading
-        fileInput.onchange = () => {
-            const file = fileInput.files[0];
-            if (!file) return;
-            const formData = new FormData();
-            formData.append("file", file);
-
-            fetch("backend/upload_files.php", {
-                method: "POST",
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.url) {
-                    const encryptedMessage = encrypt(`[File: ${file.name}]\n${data.url}`);
-                    const payload = {
-                        type: selectedUser ? "private_message" : "message",
-                        username,
-                        to: selectedUser || undefined,
-                        message: encryptedMessage
-                    };
-                    ws.send(JSON.stringify(payload));
-                } else {
-                    alert("Upload failed");
-                }
-                selectedUser = null;
-            });
         };
     </script>
 </body>

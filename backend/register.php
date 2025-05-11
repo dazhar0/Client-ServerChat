@@ -1,16 +1,19 @@
 <?php
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json");
-
 include 'db.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
+if (!$data || !isset($data['email'], $data['username'], $data['password'])) {
+    echo json_encode(["status" => "error", "message" => "Invalid input"]);
+    exit;
+}
 
-$email = $data['email'];
-$username = $data['username'];
-$password = password_hash($data['password'], PASSWORD_BCRYPT);
+$email = trim($data['email']);
+$username = trim($data['username']);
+$password = password_hash(trim($data['password']), PASSWORD_BCRYPT);
 
-// Check if the username already exists
+// Check for existing username
 $query = "SELECT * FROM users WHERE username = ?";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("s", $username);
@@ -22,7 +25,7 @@ if ($result->num_rows > 0) {
     exit;
 }
 
-// Insert new user into the database
+// Insert new user
 $query = "INSERT INTO users (email, username, password) VALUES (?, ?, ?)";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("sss", $email, $username, $password);
@@ -30,20 +33,6 @@ $stmt->bind_param("sss", $email, $username, $password);
 if ($stmt->execute()) {
     echo json_encode(["status" => "success", "message" => "Registration successful"]);
 } else {
-    echo json_encode(["status" => "error", "message" => "Error occurred during registration"]);
+    echo json_encode(["status" => "error", "message" => "Error during registration"]);
 }
-
-$recaptchaSecret = "YOUR_SECRET_KEY";
-$recaptchaResponse = $_POST['g-recaptcha-response'];
-
-// Verify reCAPTCHA with Google
-$response = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=$recaptchaSecret&response=$recaptchaResponse");
-$responseKeys = json_decode($response, true);
-
-if(intval($responseKeys["success"]) !== 1) {
-    die("Captcha verification failed.");
-} else {
-    // Continue with the login or registration process
-}
-
 ?>

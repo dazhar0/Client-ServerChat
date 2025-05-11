@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const server = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 let onlineUsers = {}; // stores users and their WebSocket connections
