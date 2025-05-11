@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SecureChat - Chat</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/crypto.js"></script>
+  <script src="js/script.js" defer></script>
+</head>
+<body>
+  <div id="chatSection">
+    <div id="header">
+      <h2>SecureChat</h2>
+      <div id="onlineUsers"></div>
+    </div>
+
+    <div id="messages"></div>
+
+    <div id="inputArea">
+      <input type="text" id="messageInput" placeholder="Type a message..." />
+      <button onclick="sendMessage()">Send</button>
+      <input type="file" id="fileInput" />
+    </div>
+  </div>
+</body>
+</html>
