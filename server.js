@@ -1,55 +1,52 @@
-const http = require('http');
 const WebSocket = require('ws');
-const PORT = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
-const server = http.createServer();
-const wss = new WebSocket.Server({ server, path: "/ws" });
-
-let clients = new Map();
+let users = []; // To keep track of online users
 
 wss.on('connection', (ws) => {
-  let username = "";
+  console.log('Client connected');
+  
+  ws.on('message', (message) => {
+    const data = JSON.parse(message);
 
-  ws.on('message', (msg) => {
-    try {
-      const data = JSON.parse(msg);
+    if (data.type === 'join') {
+      const user = { username: data.username, ws };
+      users.push(user);
+      sendPresenceUpdate();
+    }
 
-      if (data.type === "join") {
-        username = data.username;
-        clients.set(ws, username);
-        broadcastPresence();
-      }
-
-      if (data.type === "message") {
-        broadcast({
-          type: "message",
-          username: data.username,
-          message: data.message
-        });
-      }
-    } catch (e) {
-      console.error("Invalid message format", e);
+    if (data.type === 'message') {
+      broadcastMessage(data);
     }
   });
 
   ws.on('close', () => {
-    clients.delete(ws);
-    broadcastPresence();
+    // Remove user when they disconnect
+    users = users.filter(user => user.ws !== ws);
+    sendPresenceUpdate();
   });
+
+  function broadcastMessage(data) {
+    users.forEach(user => {
+      if (user.ws !== ws) { // Don't send the message back to the sender
+        user.ws.send(JSON.stringify({
+          type: "message",
+          username: data.username,
+          message: data.message
+        }));
+      }
+    });
+  }
+
+  function sendPresenceUpdate() {
+    const usernames = users.map(user => user.username);
+    users.forEach(user => {
+      user.ws.send(JSON.stringify({
+        type: "presence",
+        users: usernames
+      }));
+    });
+  }
 });
 
-function broadcast(msgObj) {
-  const data = JSON.stringify(msgObj);
-  for (let client of clients.keys()) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
-    }
-  }
-}
-
-function broadcastPresence() {
-  const userList = Array.from(clients.values());
-  broadcast({ type: "presence", users: userList });
-}
-
-server.listen(PORT, () => console.log(`WebSocket server listening on port ${PORT}`));
+console.log("WebSocket server listening on port 3000");
