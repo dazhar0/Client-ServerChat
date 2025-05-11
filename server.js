@@ -1,13 +1,13 @@
 const https = require('https');
 const WebSocket = require('ws');
 
-// Create an HTTPS server (Render will automatically handle SSL)
+// Create an HTTPS server (automatically handles SSL on Render)
 const server = https.createServer((req, res) => {
   res.writeHead(200);
-  res.end('Secure WebSocket Server');
+  res.end('WebSocket Server is running');
 });
 
-// Create WebSocket server attached to the HTTPS server
+// Create the WebSocket server
 const wss = new WebSocket.Server({ server });
 
 let users = []; // To keep track of online users
@@ -58,7 +58,8 @@ wss.on('connection', (ws) => {
   }
 });
 
-// Start the server on the port provided by Render
-server.listen(process.env.PORT || 443, () => {
-  console.log('WebSocket server listening on secure wss://');
+// Start the server on the port Render provides (443 for HTTPS/WSS)
+const port = process.env.PORT || 443;
+server.listen(port, () => {
+  console.log(`WebSocket server running on wss://client-serverchat.onrender.com`);
 });
