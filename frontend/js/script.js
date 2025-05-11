@@ -4,7 +4,7 @@ const serverUrl = "wss://client-serverchat.onrender.com"; // Replace with your R
 
 function connectWebSocket() {
   if (!username) {
-    username = prompt("Please enter your username:"); // Prompt the user if no username is set
+    username = prompt("Please enter your username:");
     localStorage.setItem("username", username);
   }
 
@@ -30,7 +30,7 @@ function connectWebSocket() {
     if (!event.wasClean) {
       console.error("WebSocket error:", event);
     }
-    setTimeout(connectWebSocket, 3000); // auto-reconnect
+    setTimeout(connectWebSocket, 3000);
   };
 }
 
@@ -39,16 +39,16 @@ function sendMessage() {
   const message = input.value;
   if (!message || !socket || socket.readyState !== 1) return;
 
-  const encrypted = encryptMessage(message); // Ensure this is properly implemented
+  const encrypted = encryptMessage(message);
   socket.send(JSON.stringify({ type: "message", username, message: encrypted }));
-  displayMessage({ username, message: encrypted }); // display local copy
+  displayMessage({ username, message: encrypted });
   input.value = "";
 }
 
 function displayMessage({ username, message }) {
   const container = document.getElementById("messages");
   const el = document.createElement("div");
-  el.textContent = `${username}: ${decryptMessage(message)}`; // Ensure this is properly implemented
+  el.textContent = `${username}: ${decryptMessage(message)}`;
   container.appendChild(el);
   container.scrollTop = container.scrollHeight;
 }
