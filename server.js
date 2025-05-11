@@ -68,8 +68,8 @@ server.on('connection', (ws) => {
             };
 
             // Send to recipient if online
-            if (onlineUsers[toUser]) {
-                onlineUsers[toUser].send(JSON.stringify(payload));
+            if (data.from !== data.to && onlineUsers[data.from]) {
+                onlineUsers[data.from].send(JSON.stringify(payload));
             }
 
             // Always send a copy to sender
