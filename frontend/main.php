@@ -198,7 +198,8 @@ $username = $_SESSION['username'];
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "message") {
-                addMessage(data.username, data.message);
+                const sender = data.username || data.from || 'Unknown';
+                addMessage(sender, data.message);
             } else if (data.type === "private_message") {
                 const sender = data.from;
                 const peer = sender === username ? data.to : sender;
@@ -234,8 +235,8 @@ $username = $_SESSION['username'];
             document.getElementById("fileInput").click();
         };
 
-        document.getElementById("fileInput").onchange = () => {
-            const file = document.getElementById("fileInput").files[0];
+        document.getElementById(`fileInput-${to}`).onchange = () => {
+            const file = document.getElementById(`fileInput-${to}`).files[0];
             if (!file) return;
             const formData = new FormData();
             formData.append("file", file);
@@ -246,15 +247,18 @@ $username = $_SESSION['username'];
                 if (data.url) {
                     const fileMsg = `[File: ${file.name}]\n${data.url}`;
                     const payload = {
-                        type: selectedUser ? "private_message" : "message",
+                        type: "private_message",
                         from: username,
-                        to: selectedUser || undefined,
+                        to,
                         message: encrypt(fileMsg)
                     };
                     ws.send(JSON.stringify(payload));
-                } else alert("Upload failed.");
+                } else {
+                    alert("Upload failed.");
+                }
             });
         };
+
 
         document.getElementById("emojiBtn").onclick = () => {
             const picker = document.getElementById("emoji-picker");

@@ -1,21 +1,15 @@
 <?php
-include 'db.php';
-header("Content-Type: application/json");
-
 if ($_FILES['file']['error'] === UPLOAD_ERR_OK) {
-    $fileTmpPath = $_FILES['file']['tmp_name'];
-    $fileName = $_FILES['file']['name'];
-    $fileType = $_FILES['file']['type'];
-    $fileSize = $_FILES['file']['size'];
-    $uploadDir = 'uploads/';
+    $uploadDir = '../uploads/';
+    $filename = basename($_FILES['file']['name']);
+    $target = $uploadDir . $filename;
 
-    $dest_path = $uploadDir . $fileName;
-    if (move_uploaded_file($fileTmpPath, $dest_path)) {
-        echo json_encode(['url' => $dest_path]);
+    if (move_uploaded_file($_FILES['file']['tmp_name'], $target)) {
+        echo json_encode(['url' => 'uploads/' . $filename]);
     } else {
-        echo json_encode(['error' => 'File upload failed']);
+        echo json_encode(['error' => 'move failed']);
     }
 } else {
-    echo json_encode(['error' => 'No file uploaded']);
+    echo json_encode(['error' => 'upload failed']);
 }
 ?>

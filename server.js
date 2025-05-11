@@ -33,6 +33,7 @@ server.on('connection', (ws) => {
         if (data.type === 'join') {
             username = data.username;
             onlineUsers[username] = ws;
+            loadOfflineMessages(username);
             console.log(`${username} has joined.`); // Debugging: Log user joining
             sendOnlineUsers(); // Send the updated list of online users
             broadcast({ type: 'user_joined', username });
@@ -50,8 +51,12 @@ server.on('connection', (ws) => {
             }
 
         } else if (data.type === 'message') {
-            // Broadcast message to all users
-            broadcast({ type: 'message', username: data.username, message: data.message });
+            const messageToSend = {
+                type: 'message',
+                username: data.from, // <- Make sure this is included as 'username'
+                message: data.message
+            };
+            broadcast(JSON.stringify(messageToSend));
 
         } else if (data.type === 'private_message') {
             const toUser = data.to;
@@ -125,6 +130,29 @@ server.on('connection', (ws) => {
             }
         });
     }
+
+    function loadOfflineMessages(username) {
+        db.query('SELECT * FROM private_messages WHERE to_user = ?', [username], (err, results) => {
+            if (err) {
+                console.error('Error loading offline messages:', err);
+                return;
+            }
+            results.forEach(row => {
+                if (onlineUsers[username]) {
+                    onlineUsers[username].send(JSON.stringify({
+                        type: 'private_message',
+                        from: row.from_user,
+                        to: row.to_user,
+                        message: row.message
+                    }));
+                }
+            });
+    
+            // Optional: Delete messages after delivery
+            db.query('DELETE FROM private_messages WHERE to_user = ?', [username]);
+        });
+    }
+    
 });
 
 console.log("WebSocket server is running on wss://client-serverchat.onrender.com");
