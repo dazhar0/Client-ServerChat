@@ -1,21 +1,14 @@
 <?php
-// backend/presence.php
-header('Content-Type: application/json');
+session_start();
+include('db.php');
 
-// Query the database for online users
-$mysqli = new mysqli("localhost", "username", "password", "database");
+$query = "SELECT username, online FROM users";
+$result = $mysqli->query($query);
 
-if ($mysqli->connect_error) {
-    die("Connection failed: " . $mysqli->connect_error);
-}
-
-$result = $mysqli->query("SELECT username FROM users WHERE online = 1");
 $users = [];
 while ($row = $result->fetch_assoc()) {
     $users[] = $row;
 }
 
 echo json_encode($users);
-
-$mysqli->close();
 ?>

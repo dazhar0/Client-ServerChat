@@ -1,7 +1,24 @@
 const WebSocket = require('ws');
+const mysql = require('mysql');
 const server = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 let onlineUsers = {}; // stores users and their WebSocket connections
+
+// Set up MySQL connection
+const db = mysql.createConnection({
+    host: 'localhost', // Change to your DB host
+    user: 'root',      // Change to your DB user
+    password: '',      // Change to your DB password
+    database: 'securechat' // Change to your database name
+});
+
+db.connect((err) => {
+    if (err) {
+        console.error('Error connecting to the database: ' + err.stack);
+        return;
+    }
+    console.log('Connected to MySQL database');
+});
 
 server.on('connection', (ws) => {
     let username = null;
@@ -32,17 +49,24 @@ server.on('connection', (ws) => {
             }
 
         } else if (data.type === 'message') {
+            // Broadcast message to all users
             broadcast({ type: 'message', username: data.username, message: data.message });
 
         } else if (data.type === 'private_message') {
             const toUser = data.to;
+            const message = data.message;
+
             if (onlineUsers[toUser]) {
+                // If the user is online, send the private message directly
                 onlineUsers[toUser].send(JSON.stringify({
                     type: 'private_message',
                     from: data.from,
                     to: data.to,
-                    message: data.message
+                    message
                 }));
+            } else {
+                // If the user is offline, save the message to the database
+                savePrivateMessage(data.from, toUser, message);
             }
         }
     });
@@ -80,10 +104,22 @@ server.on('connection', (ws) => {
 
     // Update user's online presence in the database
     function updatePresence(username, status) {
-        fetch("https://your-backend-url.com/backend/update_presence.php", {  // Update this URL
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, online: status })
+        db.query('UPDATE users SET online = ? WHERE username = ?', [status, username], (err, result) => {
+            if (err) {
+                console.error('Error updating presence: ' + err.stack);
+            }
+        });
+    }
+
+    // Save private message to the database for offline user
+    function savePrivateMessage(from, to, message) {
+        const query = 'INSERT INTO private_messages (from_user, to_user, message, timestamp) VALUES (?, ?, ?, ?)';
+        const timestamp = new Date().toISOString();
+
+        db.query(query, [from, to, message, timestamp], (err, result) => {
+            if (err) {
+                console.error('Error saving private message: ' + err.stack);
+            }
         });
     }
 });

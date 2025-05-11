@@ -29,4 +29,18 @@ if ($result->num_rows > 0) {
 } else {
     echo json_encode(["status" => "error", "message" => "User not found"]);
 }
+
+$recaptchaSecret = "YOUR_SECRET_KEY";
+$recaptchaResponse = $_POST['g-recaptcha-response'];
+
+// Verify reCAPTCHA with Google
+$response = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=$recaptchaSecret&response=$recaptchaResponse");
+$responseKeys = json_decode($response, true);
+
+if(intval($responseKeys["success"]) !== 1) {
+    die("Captcha verification failed.");
+} else {
+    // Continue with the login or registration process
+}
+
 ?>

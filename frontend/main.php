@@ -23,8 +23,11 @@ $username = $_SESSION['username'];
         .message { margin: 5px 0; }
         .sender { font-weight: bold; margin-right: 5px; }
         .user { cursor: pointer; color: blue; }
+        .notification { color: red; font-size: 0.9em; }
+        .emoji-btn { font-size: 24px; cursor: pointer; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 <body>
     <div id="chat-container">
@@ -35,7 +38,9 @@ $username = $_SESSION['username'];
             <input type="file" id="fileInput" style="display: none;" />
             <button id="fileBtn">📎</button>
             <button id="send">Send</button>
+            <button id="emojiBtn" class="emoji-btn">😊</button>
         </div>
+        <div class="g-recaptcha" data-sitekey="YOUR_SITE_KEY"></div>
     </div>
 
     <script>
@@ -46,10 +51,13 @@ $username = $_SESSION['username'];
         const fileInput = document.getElementById("fileInput");
         const fileBtn = document.getElementById("fileBtn");
         const onlineDiv = document.getElementById("online-users");
+        const emojiBtn = document.getElementById("emojiBtn");
+        const recaptchaResponse = document.querySelector('.g-recaptcha');
 
-        const ws = new WebSocket("wss://client-serverchat.onrender.com");
+        const ws = new WebSocket("wss://client-serverchat.onrender.com"); // WebSocket URL
         const SECRET_KEY = "your-very-strong-secret";
 
+        // Encrypt and decrypt messages
         function encrypt(text) {
             return CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
         }
@@ -59,6 +67,7 @@ $username = $_SESSION['username'];
             return bytes.toString(CryptoJS.enc.Utf8) || "[Failed to decrypt]";
         }
 
+        // Display a message in the chat
         function addMessage(sender, text, isPrivate = false) {
             const msg = document.createElement("div");
             msg.className = "message";
@@ -67,6 +76,16 @@ $username = $_SESSION['username'];
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
+        // Show notifications in the chat
+        function addNotification(message) {
+            const notification = document.createElement("div");
+            notification.className = "notification";
+            notification.innerText = message;
+            messagesDiv.appendChild(notification);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Update presence status
         function updatePresence(status) {
             fetch("backend/update_presence.php", {
                 method: "POST",
@@ -75,11 +94,13 @@ $username = $_SESSION['username'];
             });
         }
 
+        // WebSocket on open
         ws.onopen = () => {
             ws.send(JSON.stringify({ type: "join", username }));
             updatePresence(1);
         };
 
+        // WebSocket on message
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "message" || data.type === "private_message") {
@@ -92,6 +113,7 @@ $username = $_SESSION['username'];
             }
         };
 
+        // Send a regular chat message
         sendBtn.onclick = () => {
             const text = input.value.trim();
             if (text !== "") {
@@ -100,15 +122,31 @@ $username = $_SESSION['username'];
                     username,
                     message: encrypt(text)
                 };
-                ws.send(JSON.stringify(payload));
-                input.value = "";
+
+                // ReCAPTCHA validation before sending message
+                if (grecaptcha.getResponse()) {
+                    ws.send(JSON.stringify(payload));
+                    input.value = "";
+                } else {
+                    alert("Please complete the CAPTCHA.");
+                }
             }
         };
 
+        // Handle emoji insertion
+        emojiBtn.onclick = () => {
+            const emoji = prompt("Enter emoji: 😊😢😎");
+            if (emoji) {
+                input.value += emoji;
+            }
+        };
+
+        // Handle file input and upload
         fileBtn.onclick = () => fileInput.click();
 
-        let selectedUser = null; // track if sending private file
+        let selectedUser = null; // for private file send
 
+        // Handle file changes
         fileInput.onchange = () => {
             const file = fileInput.files[0];
             if (!file) return;
@@ -137,46 +175,86 @@ $username = $_SESSION['username'];
             });
         };
 
+        // Update the list of online users
+        function updateOnlineUsers(users) {
+            onlineDiv.innerHTML = "<b>Online Users:</b><br>" +
+                users.filter(u => u.online == 1)
+                    .map(u => `<span class="user" data-username="${u.username}">${u.username}</span>`)
+                    .join("<br>");
+
+            // Enable clicking on online users to send private messages
+            document.querySelectorAll('.user').forEach(userEl => {
+                userEl.onclick = () => {
+                    const to = userEl.dataset.username;
+                    if (to === username) return alert("You can't message yourself.");
+                    const text = prompt(`Send private message to ${to}:`);
+                    if (text) {
+                        const payload = {
+                            type: "private_message",
+                            from: username,
+                            to: to,
+                            message: encrypt(text)
+                        };
+                        ws.send(JSON.stringify(payload));
+                    }
+                    // set for private file send
+                    selectedUser = to;
+                };
+            });
+        }
+
+        // Fetch online users at regular intervals
+        setInterval(() => {
+            fetchOnlineUsers();
+        }, 5000);
+
+        // Fetch online users
         function fetchOnlineUsers() {
             fetch("backend/presence.php")
                 .then(res => res.json())
                 .then(users => {
-                    onlineDiv.innerHTML = "<b>Online Users:</b><br>" +
-                        users.filter(u => u.online == 1)
-                            .map(u => `<span class="user" data-username="${u.username}">${u.username}</span>`)
-                            .join("<br>");
-
-                    document.querySelectorAll('.user').forEach(userEl => {
-                        userEl.onclick = () => {
-                            const to = userEl.dataset.username;
-                            if (to === username) return alert("You can't message yourself.");
-                            const text = prompt(`Send private message to ${to}:`);
-                            if (text) {
-                                const payload = {
-                                    type: "private_message",
-                                    from: username,
-                                    to: to,
-                                    message: encrypt(text)
-                                };
-                                ws.send(JSON.stringify(payload));
-                            }
-                            // set for private file send
-                            selectedUser = to;
-                        };
-                    });
+                    updateOnlineUsers(users);
                 });
         }
 
-        fetchOnlineUsers();
-        setInterval(fetchOnlineUsers, 5000);
-
+        // Update presence status when leaving
         window.addEventListener("beforeunload", () => {
             ws.send(JSON.stringify({ type: "leave", username }));
             updatePresence(0);
         });
 
+        // WebSocket on close
         ws.onclose = () => {
             updatePresence(0);
+        };
+
+        // Handle file input changes for uploading
+        fileInput.onchange = () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append("file", file);
+
+            fetch("backend/upload_files.php", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.url) {
+                    const encryptedMessage = encrypt(`[File: ${file.name}]\n${data.url}`);
+                    const payload = {
+                        type: selectedUser ? "private_message" : "message",
+                        username,
+                        to: selectedUser || undefined,
+                        message: encryptedMessage
+                    };
+                    ws.send(JSON.stringify(payload));
+                } else {
+                    alert("Upload failed");
+                }
+                selectedUser = null;
+            });
         };
     </script>
 </body>

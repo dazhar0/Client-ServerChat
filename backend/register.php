@@ -32,4 +32,18 @@ if ($stmt->execute()) {
 } else {
     echo json_encode(["status" => "error", "message" => "Error occurred during registration"]);
 }
+
+$recaptchaSecret = "YOUR_SECRET_KEY";
+$recaptchaResponse = $_POST['g-recaptcha-response'];
+
+// Verify reCAPTCHA with Google
+$response = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=$recaptchaSecret&response=$recaptchaResponse");
+$responseKeys = json_decode($response, true);
+
+if(intval($responseKeys["success"]) !== 1) {
+    die("Captcha verification failed.");
+} else {
+    // Continue with the login or registration process
+}
+
 ?>
