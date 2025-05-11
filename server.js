@@ -1,61 +1,89 @@
 const WebSocket = require('ws');
+const server = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
-// Create an HTTP server (Render handles SSL)
-const server = require('http').createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end('<h1>Welcome to Secure Chat!</h1><p>The WebSocket server is running!</p>');
-});
+let onlineUsers = {}; // stores users and their WebSocket connections
 
-// Create WebSocket server on the HTTP server
-const wss = new WebSocket.Server({ server });
+server.on('connection', (ws) => {
+    let username = null;
 
-let users = []; // To track connected users
+    // When a message is received
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
 
-wss.on('connection', (ws) => {
-  console.log('Client connected');
-  
-  ws.on('message', (message) => {
-    const data = JSON.parse(message);
+        if (data.type === 'join') {
+            username = data.username;
+            onlineUsers[username] = ws;
+            // Notify all users that a new user has joined
+            broadcast({ type: 'user_joined', username });
 
-    if (data.type === 'join') {
-      const user = { username: data.username, ws };
-      users.push(user);
-      sendPresenceUpdate();
+            // Update user presence in the database (optional)
+            updatePresence(username, 1);
+
+        } else if (data.type === 'leave') {
+            // Notify all users that the user has left
+            if (username) {
+                broadcast({ type: 'user_left', username });
+                // Update user presence in the database (optional)
+                updatePresence(username, 0);
+                delete onlineUsers[username]; // Remove user from online list
+            }
+
+        } else if (data.type === 'message') {
+            // Broadcast message to all users (public message)
+            broadcast({ type: 'message', username: data.username, message: data.message });
+
+        } else if (data.type === 'private_message') {
+            // Send private message to a specific user
+            const toUser = data.to;
+            if (onlineUsers[toUser]) {
+                onlineUsers[toUser].send(JSON.stringify({
+                    type: 'private_message',
+                    from: data.from,
+                    to: data.to,
+                    message: data.message
+                }));
+            }
+        }
+    });
+
+    // When the connection is closed
+    ws.on('close', () => {
+        if (username) {
+            delete onlineUsers[username];
+            broadcast({ type: 'user_left', username });
+            // Update user presence in the database (optional)
+            updatePresence(username, 0);
+        }
+    });
+
+    // When an error occurs
+    ws.on('error', () => {
+        if (username) {
+            delete onlineUsers[username];
+            broadcast({ type: 'user_left', username });
+            // Update user presence in the database (optional)
+            updatePresence(username, 0);
+        }
+    });
+
+    // Broadcast a message to all connected users
+    function broadcast(data) {
+        const message = JSON.stringify(data);
+        for (const user in onlineUsers) {
+            if (onlineUsers.hasOwnProperty(user)) {
+                onlineUsers[user].send(message);
+            }
+        }
     }
 
-    if (data.type === 'message') {
-      broadcastMessage(data);
+    // Update user's online presence in the database
+    function updatePresence(username, status) {
+        fetch("https://your-backend-url.com/backend/update_presence.php", {  // Update this URL
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, online: status })
+        });
     }
-  });
-
-  ws.on('close', () => {
-    users = users.filter(user => user.ws !== ws);
-    sendPresenceUpdate();
-  });
-
-  function broadcastMessage(data) {
-    users.forEach(user => {
-      user.ws.send(JSON.stringify({
-        type: "message",
-        username: data.username,
-        message: data.message
-      }));
-    });
-    
-  }
-
-  function sendPresenceUpdate() {
-    const usernames = users.map(user => user.username);
-    users.forEach(user => {
-      user.ws.send(JSON.stringify({
-        type: "presence",
-        users: usernames
-      }));
-    });
-  }
 });
 
-const port = process.env.PORT || 443;
-server.listen(port, () => {
-  console.log(`WebSocket server running on wss://client-serverchat.onrender.com`);
-});
+console.log("WebSocket server is running on wss://client-serverchat.onrender.com");

@@ -31,7 +31,7 @@
             const result = await response.json();
             if (result.status === "success") {
                 localStorage.setItem("username", username);
-                window.location.href = 'chat.php';  // Redirect to the chat page after successful login
+                window.location.href = 'main.php';  // Redirect to the chat page after successful login
             } else {
                 alert(result.message);
             }
