@@ -1,14 +1,12 @@
-const https = require('https');
 const WebSocket = require('ws');
 
-// Create an HTTPS server (Render automatically handles SSL)
-const server = https.createServer((req, res) => {
-  // Respond to HTTP requests (you can customize this to return HTML or any content)
+// Create an HTTP server (Render handles SSL)
+const server = require('http').createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end('<h1>Welcome to Secure Chat!</h1><p>The WebSocket server is running!</p>');
 });
 
-// Create WebSocket server
+// Create WebSocket server on the HTTP server
 const wss = new WebSocket.Server({ server });
 
 let users = []; // To track connected users
@@ -31,15 +29,13 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    // Remove user when they disconnect
     users = users.filter(user => user.ws !== ws);
     sendPresenceUpdate();
   });
 
-  // Broadcast message to all connected clients except the sender
   function broadcastMessage(data) {
     users.forEach(user => {
-      if (user.ws !== ws) { // Don't send back to the sender
+      if (user.ws !== ws) {
         user.ws.send(JSON.stringify({
           type: "message",
           username: data.username,
@@ -49,7 +45,6 @@ wss.on('connection', (ws) => {
     });
   }
 
-  // Send the list of online users to everyone
   function sendPresenceUpdate() {
     const usernames = users.map(user => user.username);
     users.forEach(user => {
@@ -61,7 +56,6 @@ wss.on('connection', (ws) => {
   }
 });
 
-// Ensure the server listens on the appropriate port (Render will assign it automatically)
 const port = process.env.PORT || 443;
 server.listen(port, () => {
   console.log(`WebSocket server running on wss://client-serverchat.onrender.com`);
