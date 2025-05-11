@@ -1,6 +1,6 @@
 let socket;
 let username = localStorage.getItem("username") || "";
-const serverUrl = "wss://client-serverchat.onrender.com"; // Replace with your Render WebSocket URL
+const serverUrl = "wss://client-serverchat.onrender.com"; // WebSocket server URL
 
 function connectWebSocket() {
   if (!username) {
@@ -34,17 +34,19 @@ function connectWebSocket() {
   };
 }
 
+// Send a message (encrypt before sending)
 function sendMessage() {
   const input = document.getElementById("messageInput");
   const message = input.value;
   if (!message || !socket || socket.readyState !== 1) return;
 
-  const encrypted = encryptMessage(message);
-  socket.send(JSON.stringify({ type: "message", username, message: encrypted }));
-  displayMessage({ username, message: encrypted });
+  const encryptedMessage = encryptMessage(message);
+  socket.send(JSON.stringify({ type: "message", username, message: encryptedMessage }));
+  displayMessage({ username, message: encryptedMessage });
   input.value = "";
 }
 
+// Display received messages (decrypt before displaying)
 function displayMessage({ username, message }) {
   const container = document.getElementById("messages");
   const el = document.createElement("div");

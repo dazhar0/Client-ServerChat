@@ -1,19 +1,14 @@
 <?php
 $host = 'sql103.infinityfree.com';
-$db   = 'if0_38857895_chattitan';
 $user = 'if0_38857895';
-$pass = 'RCsgAyp68zzNyx';  // Your MySQL password
-$charset = 'utf8mb4';
-
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-$options = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-];
+$pass = 'RCsgAyp68zzNyx';
+$dbname = 'if0_38857895_chattitan';
 
 try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
-} catch (\PDOException $e) {
-    die(json_encode(["status" => "error", "message" => "DB Connection failed: " . $e->getMessage()]));
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    echo "Database connection test successful!";  // Add this line for testing connection
+} catch (PDOException $e) {
+    echo "Connection failed: " . $e->getMessage();
 }
 ?>

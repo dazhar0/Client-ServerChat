@@ -1,26 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>SecureChat - Chat</title>
-  <link rel="stylesheet" href="css/style.css">
-  <script src="js/crypto.js"></script>
-  <script src="js/script.js" defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureChat - Chat</title>
+    <style>
+        .chatbox { width: 100%; height: 300px; overflow-y: scroll; }
+        .message { padding: 10px; }
+    </style>
 </head>
 <body>
-  <div id="chatSection">
-    <div id="header">
-      <h2>SecureChat</h2>
-      <div id="onlineUsers"></div>
-    </div>
+    <h1>Chat - SecureChat</h1>
+    <div id="userList"></div>
+    <div class="chatbox" id="chatbox"></div>
+    <input type="text" id="messageInput" placeholder="Type a message..." />
+    <button id="sendButton">Send</button>
+    <input type="file" id="fileInput" />
+    <button id="fileSendButton">Send File</button>
 
-    <div id="messages"></div>
+    <script>
+        // Initialize WebSocket with the correct URL
+        const ws = new WebSocket("wss://client-serverchat.onrender.com");
+        // Retrieve or prompt for username
+        const username = localStorage.getItem("username") || prompt("Enter your username:");
+        localStorage.setItem("username", username);
 
-    <div id="inputArea">
-      <input type="text" id="messageInput" placeholder="Type a message..." />
-      <button onclick="sendMessage()">Send</button>
-      <input type="file" id="fileInput" />
-    </div>
-  </div>
+        const chatbox = document.getElementById("chatbox");
+        const userList = document.getElementById("userList");
+        
+        // Update user list periodically
+        async function updateUsers() {
+            const response = await fetch('https://chattitans.42web.io/backend/get_users.php');
+            const users = await response.json();
+            userList.innerHTML = users.map(user => `<p>${user.username} - ${user.online ? 'Online' : 'Offline'}</p>`).join('');
+        }
+        setInterval(updateUsers, 5000);
+
+        // WebSocket message handling
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            const messageElem = document.createElement('div');
+            messageElem.classList.add('message');
+            // Display the sender and message
+            messageElem.textContent = `${msg.sender}: ${msg.message}`;
+            chatbox.appendChild(messageElem);
+        };
+
+        // Sending text messages
+        document.getElementById("sendButton").onclick = () => {
+            const message = document.getElementById("messageInput").value;
+            ws.send(JSON.stringify({ type: "message", sender: username, message }));
+            document.getElementById("messageInput").value = ''; // Clear input field
+        };
+
+        // Sending files
+        document.getElementById("fileSendButton").onclick = () => {
+            const file = document.getElementById("fileInput").files[0];
+            const formData = new FormData();
+            formData.append("file", file);
+            fetch('https://chattitans.42web.io/backend/upload_file.php', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => ws.send(JSON.stringify({ type: "file", sender: username, fileUrl: data.url })));
+        };
+    </script>
 </body>
 </html>

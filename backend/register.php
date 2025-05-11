@@ -1,29 +1,23 @@
 <?php
-require 'db.php'; // ✅ Make sure this file exists and is correct
+// CORS headers
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = htmlspecialchars($_POST['username']);
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
+// Database connection
+include 'db.php';
 
-    // Check if email or username already exists
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ? OR username = ?");
-    $stmt->execute([$email, $username]);
-    $exists = $stmt->fetchColumn();
+// Get input data from the frontend
+$data = json_decode(file_get_contents('php://input'), true);
 
-    if ($exists > 0) {
-        echo json_encode(["status" => "error", "message" => "Email or username already exists."]);
-        exit;
-    }
+$username = $data['username'];
+$password = password_hash($data['password'], PASSWORD_BCRYPT); // Hash the password
 
-    $stmt = $pdo->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
-    try {
-        $stmt->execute([$username, $email, $password]);
-        echo json_encode(["status" => "success", "message" => "Registration successful."]);
-    } catch (PDOException $e) {
-        echo json_encode(["status" => "error", "message" => "Registration failed: " . $e->getMessage()]);
-    }
-} else {
-    echo json_encode(["status" => "error", "message" => "Invalid request method."]);
-}
+// Query to insert new user into the database
+$query = "INSERT INTO users (username, password) VALUES (?, ?)";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("ss", $username, $password);
+$stmt->execute();
+
+echo json_encode(["status" => "success", "message" => "Registration successful"]);
 ?>

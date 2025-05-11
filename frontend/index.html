@@ -3,22 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecureChat</title>
-  <style>
-    /* Add basic styles */
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    #messages { max-height: 300px; overflow-y: auto; }
-    #messageInput { width: 100%; padding: 10px; margin-top: 10px; }
-    #onlineUsers { margin-top: 10px; }
-  </style>
+  <title>Login - Secure Chat</title>
 </head>
 <body>
+  <h1>Welcome to Secure Chat</h1>
+  <form id="loginForm">
+    <label for="username">Enter your username:</label>
+    <input type="text" id="username" required>
+    <button type="submit">Login</button>
+  </form>
 
-  <h1>SecureChat</h1>
-  <div id="onlineUsers">Online: </div>
-  <div id="messages"></div>
-  <input type="text" id="messageInput" placeholder="Type a message..." />
-  
-  <script src="script.js"></script>
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", function(event) {
+      event.preventDefault();
+      const username = document.getElementById("username").value;
+      if (username) {
+        localStorage.setItem("username", username);
+        window.location.href = "chat.html";  // Redirect to chat page
+      }
+    });
+  </script>
 </body>
 </html>
