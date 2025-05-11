@@ -84,6 +84,8 @@ $username = $_SESSION['username'];
             border: 1px solid #ddd;
             background: #fff;
             position: absolute;
+            bottom: 60px; /* Position it above the input area */
+            left: 10px; /* Adjust left position */
             border-radius: 5px;
             z-index: 10;
         }
@@ -298,21 +300,31 @@ $username = $_SESSION['username'];
             chatArea.id = `private-chat-${to}`;
             chatArea.innerHTML = `
                 <div class="chat-tab-header">
-                    <b>Private Chat with ${to}</b>
-                    <span class="close-tab" onclick="closePrivateChat('${to}')">X</span>
-                </div>
-                <div id="private-chat-${to}-messages" style="height: 200px; overflow-y:auto;"></div>
+                <b>Private Chat with ${to}</b>
+                <span class="close-tab" onclick="closePrivateChat('${to}')">X</span>
+            </div>
+
+            <div id="private-chat-${to}-messages" style="height: 200px; overflow-y:auto;"></div>
+
+            <!-- WRAPPER for input/buttons/emoji picker -->
+            <div class="private-input-wrapper" style="position: relative; display: flex; align-items: center; gap: 5px;">
+
                 <input type="text" class="private-input" id="private-input-${to}" placeholder="Type a message" />
                 <input type="file" id="fileInput-${to}" style="display:none;" />
+
                 <button onclick="sendPrivateMessage('${to}')">Send</button>
                 <button onclick="document.getElementById('fileInput-${to}').click();">📎</button>
                 <button onclick="toggleEmojiPicker('${to}')">😊</button>
-                <div id="emoji-picker-${to}" class="emoji-picker">
+
+                <!-- Moved inside the wrapper for correct positioning -->
+                <div id="emoji-picker-${to}" class="emoji-picker" style="display:none; position:absolute; bottom: 40px; left: 0; background:#fff; border:1px solid #ccc; padding:5px; border-radius:5px; z-index:100;">
                     <span class="emoji" onclick="addEmojiTo('${to}', '😊')">😊</span>
                     <span class="emoji" onclick="addEmojiTo('${to}', '😂')">😂</span>
                     <span class="emoji" onclick="addEmojiTo('${to}', '😢')">😢</span>
                     <span class="emoji" onclick="addEmojiTo('${to}', '😎')">😎</span>
                 </div>
+
+            </div>
             `;
             document.getElementById("private-chat-area-container").appendChild(chatArea);
             selectedUser = to;
