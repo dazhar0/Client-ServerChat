@@ -86,6 +86,10 @@ $username = $_SESSION['username'];
                 const isPrivate = data.type === "private_message";
                 addMessage(data.username, data.message, isPrivate);
             }
+
+            if (data.type === "online_users") {
+                updateOnlineUsers(data.users);
+            }
         };
 
         sendBtn.onclick = () => {

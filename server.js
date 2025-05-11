@@ -13,6 +13,8 @@ server.on('connection', (ws) => {
         if (data.type === 'join') {
             username = data.username;
             onlineUsers[username] = ws;
+            // Send the updated list of online users to the requesting user
+            sendOnlineUsers();
             // Notify all users that a new user has joined
             broadcast({ type: 'user_joined', username });
 
@@ -20,20 +22,19 @@ server.on('connection', (ws) => {
             updatePresence(username, 1);
 
         } else if (data.type === 'leave') {
-            // Notify all users that the user has left
             if (username) {
+                // Notify all users that the user has left
                 broadcast({ type: 'user_left', username });
                 // Update user presence in the database (optional)
                 updatePresence(username, 0);
-                delete onlineUsers[username]; // Remove user from online list
+                delete onlineUsers[username];
+                sendOnlineUsers(); // Send the updated list of online users
             }
 
         } else if (data.type === 'message') {
-            // Broadcast message to all users (public message)
             broadcast({ type: 'message', username: data.username, message: data.message });
 
         } else if (data.type === 'private_message') {
-            // Send private message to a specific user
             const toUser = data.to;
             if (onlineUsers[toUser]) {
                 onlineUsers[toUser].send(JSON.stringify({
@@ -51,18 +52,8 @@ server.on('connection', (ws) => {
         if (username) {
             delete onlineUsers[username];
             broadcast({ type: 'user_left', username });
-            // Update user presence in the database (optional)
             updatePresence(username, 0);
-        }
-    });
-
-    // When an error occurs
-    ws.on('error', () => {
-        if (username) {
-            delete onlineUsers[username];
-            broadcast({ type: 'user_left', username });
-            // Update user presence in the database (optional)
-            updatePresence(username, 0);
+            sendOnlineUsers(); // Send the updated list of online users
         }
     });
 
@@ -73,6 +64,17 @@ server.on('connection', (ws) => {
             if (onlineUsers.hasOwnProperty(user)) {
                 onlineUsers[user].send(message);
             }
+        }
+    }
+
+    // Send the list of online users to all clients
+    function sendOnlineUsers() {
+        const users = Object.keys(onlineUsers).map(username => ({ username, online: 1 }));
+        for (const user in onlineUsers) {
+            onlineUsers[user].send(JSON.stringify({
+                type: 'online_users',
+                users: users
+            }));
         }
     }
 
