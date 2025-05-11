@@ -53,7 +53,7 @@ server.on('connection', (ws) => {
         } else if (data.type === 'message') {
             const messageToSend = {
                 type: 'message',
-                username: data.from, // <- Make sure this is included as 'username'
+                from: data.from, // <- Make sure this is included as 'username'
                 message: data.message
             };
             broadcast(JSON.stringify(messageToSend));

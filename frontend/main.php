@@ -198,8 +198,8 @@ $username = $_SESSION['username'];
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "message") {
-                const sender = data.username || data.from || 'Unknown';
-                addMessage(sender, data.message);
+                const sender = data.from || 'Unknown'; // always use 'from'
+                addMessage(sender, data.message);;
             } else if (data.type === "private_message") {
                 const sender = data.from;
                 const peer = sender === username ? data.to : sender;
