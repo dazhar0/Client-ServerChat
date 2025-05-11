@@ -196,28 +196,28 @@ $username = $_SESSION['username'];
         };
 
         ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-        if (data.type === "message") {
-            const sender = data.from || 'Unknown'; // always use 'from'
-            addMessage(sender, data.message);
-        } else if (data.type === "private_message") {
-            const sender = data.from;
-            const peer = sender === username ? data.to : sender;
+            const data = JSON.parse(event.data);
+            if (data.type === "message") {
+                const sender = data.from || 'Unknown'; // always use 'from'
+                addMessage(sender, data.message);
+            } else if (data.type === "private_message") {
+                const sender = data.from;
+                const peer = sender === username ? data.to : sender;
 
-            // Prevent adding the sender's message again for themselves
-            if (sender !== username) {
-                openPrivateChat(peer); // Open private chat with the peer
-                addMessage(sender, data.message, true, peer);
-            }
+                // Prevent adding the sender's message again for themselves
+                if (sender !== username) {
+                    openPrivateChat(peer); // Open private chat with the peer
+                    addMessage(sender, data.message, true, peer);
+                }
 
-            // Only add the message to the sender's chat once, skip if it's the sender
-            if (sender === username) {
-                addMessage(sender, data.message, true, peer);  // This will prevent duplication for the sender
+                // Only add the message to the sender's chat once, skip if it's the sender
+                if (sender === username) {
+                    addMessage(sender, data.message, true, peer);  // This will prevent duplication for the sender
+                }
+            } else if (data.type === "online_users") {
+                updateOnlineUsers(data.users);
             }
-        } else if (data.type === "online_users") {
-            updateOnlineUsers(data.users);
-        }
-};
+        };
 
         ws.onclose = () => updatePresence(0);
         window.addEventListener("beforeunload", () => {
@@ -244,8 +244,8 @@ $username = $_SESSION['username'];
             document.getElementById("fileInput").click();
         };
 
-        document.getElementById(`fileInput-${to}`).onchange = () => {
-            const file = document.getElementById(`fileInput-${to}`).files[0];
+        document.getElementById("fileInput").onchange = () => {
+            const file = document.getElementById("fileInput").files[0];
             if (!file) return;
             const formData = new FormData();
             formData.append("file", file);
@@ -258,7 +258,7 @@ $username = $_SESSION['username'];
                     const payload = {
                         type: "private_message",
                         from: username,
-                        to,
+                        to: selectedUser,
                         message: encrypt(fileMsg)
                     };
                     ws.send(JSON.stringify(payload));
@@ -267,7 +267,6 @@ $username = $_SESSION['username'];
                 }
             });
         };
-
 
         document.getElementById("emojiBtn").onclick = () => {
             const picker = document.getElementById("emoji-picker");
