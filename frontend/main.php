@@ -322,7 +322,65 @@ $username = $_SESSION['username'];
         </div>
         <div id="private-chat-${to}-messages"></div>
         <input type="text" class="private-input" id="private-input-${to}" placeholder="Type a message" />
+        <input type="file" class="private-file-input" id="fileInput-${to}" style="display: none;" />
         <button class="send-private-message" onclick="sendPrivateMessage('${to}')">Send</button>
+        <button class="emoji-btn" onclick="toggleEmojiPicker('${to}')">😊</button>
+        <button class="file-btn" onclick="document.getElementById('fileInput-${to}').click();">📎</button>
+    `;
+    document.getElementById("private-chat-area-container").appendChild(chatArea);
+    selectedUser = to;
+
+    // Fetch previous messages
+    fetch(`backend/get_private_messages.php?user1=${username}&user2=${to}`)
+        .then(res => res.json())
+        .then(messages => {
+            const msgContainer = document.getElementById(`private-chat-${to}-messages`);
+            messages.forEach(msg => addMessage(msg.from, msg.message, true, to, msgContainer));
+        });
+
+    // Add file upload event listener for this specific chat window
+    document.getElementById(`fileInput-${to}`).onchange = () => {
+        const file = document.getElementById(`fileInput-${to}`).files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        fetch("backend/upload_files.php", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.url) {
+                const fileMsg = `[File: ${file.name}]\n${data.url}`;
+                const payload = {
+                    type: "private_message",
+                    from: username,
+                    to,
+                    message: encrypt(fileMsg)
+                };
+                ws.send(JSON.stringify(payload));
+            } else {
+                alert("Upload failed.");
+            }
+        });
+    };
+}
+
+
+    const chatArea = document.createElement("div");
+    chatArea.className = "private-chat-area";
+    chatArea.id = `private-chat-${to}`;
+    chatArea.innerHTML = `
+        <div class="chat-tab-header">
+            <b>Private Chat with ${to}</b>
+            <span class="close-tab" onclick="closePrivateChat('${to}')">X</span>
+        </div>
+        <div id="private-chat-${to}-messages"></div>
+        <input type="text" class="private-input" id="private-input-${to}" placeholder="Type a message" />
+        <button class="send-private-message" onclick="sendPrivateMessage('${to}')">Send</button>
+        <button class="emoji-btn" onclick="toggleEmojiPicker('${to}')">😊</button>
     `;
     document.getElementById("private-chat-area-container").appendChild(chatArea);
     selectedUser = to;
@@ -335,6 +393,32 @@ $username = $_SESSION['username'];
             messages.forEach(msg => addMessage(msg.from, msg.message, true, to, msgContainer));
         });
 }
+
+function toggleEmojiPicker(to) {
+    const picker = document.getElementById(`emoji-picker-${to}`);
+    picker.style.display = picker.style.display === "block" ? "none" : "block";
+}
+
+function addEmoji(emoji, to) {
+    const input = document.getElementById(`private-input-${to}`);
+    input.value += emoji;
+    document.getElementById(`emoji-picker-${to}`).style.display = "none";
+}
+
+// Create emoji picker dynamically for each private chat window
+function createEmojiPicker(to) {
+    const picker = document.createElement("div");
+    picker.id = `emoji-picker-${to}`;
+    picker.className = "emoji-picker";
+    picker.innerHTML = `
+        <span class="emoji" onclick="addEmoji('😊', '${to}')">😊</span>
+        <span class="emoji" onclick="addEmoji('😢', '${to}')">😢</span>
+        <span class="emoji" onclick="addEmoji('😎', '${to}')">😎</span>
+        <span class="emoji" onclick="addEmoji('😂', '${to}')">😂</span>
+    `;
+    document.getElementById(`private-chat-${to}`).appendChild(picker);
+}
+
 
 
         function closePrivateChat(to) {
