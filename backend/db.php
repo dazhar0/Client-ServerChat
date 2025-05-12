@@ -1,8 +1,10 @@
 <?php
-$host = 'sql103.infinityfree.com';
-$user = 'if0_38857895';
-$pass = 'RCsgAyp68zzNyx';
-$dbname = 'if0_38857895_chattitan';
+// WARNING: Do not commit real database credentials to public repositories.
+// Use environment variables or a .env file for sensitive information.
+$host = 'DB_HOST_HERE';
+$user = 'DB_USER_HERE';
+$pass = 'DB_PASS_HERE';
+$dbname = 'DB_NAME_HERE';
 
 $conn = new mysqli($host, $user, $pass, $dbname);
 

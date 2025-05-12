@@ -1,3 +1,10 @@
+<?php
+session_start();
+if (isset($_SESSION['username'])) {
+    header("Location: main.php");
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -117,7 +124,7 @@
       const password = document.getElementById("password").value;
       
       try {
-        const response = await fetch("backend/login.php", {
+        const response = await fetch("https://your-backend-domain.com/backend/login.php", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password })

@@ -1,6 +1,7 @@
 const CryptoJS = require('crypto-js'); // If using Node.js, otherwise use CDN in the HTML
 
-const secretKey = "supersecretkey123"; // Replace with a securely generated key (e.g., using a key exchange process)
+// WARNING: Replace with a securely generated key. Do NOT commit secrets to public repositories.
+const secretKey = "REPLACE_WITH_YOUR_SECRET_KEY";
 
 // Encrypt a message
 function encryptMessage(message) {

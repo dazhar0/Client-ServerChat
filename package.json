@@ -1,4 +1,4 @@
-{
+
     "name": "TitanChat",
     "version": "1.0.0",
     "description": "A secure chat application",
@@ -28,3 +28,4 @@
     }
   }
   
+

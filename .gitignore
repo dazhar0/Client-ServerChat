@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Environment/config files
+.env
+.env.*
+*.env
+*.env.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Sensitive PHP config
+backend/db.php
+
+# Uploaded files
+uploads/

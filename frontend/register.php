@@ -1,3 +1,10 @@
+<?php
+session_start();
+if (isset($_SESSION['username'])) {
+    header("Location: main.php");
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,7 +113,8 @@
         <label for="password">Password:</label>
         <input type="password" id="password" required>
 
-        <div class="g-recaptcha" data-sitekey="6LdWeDUrAAAAAN_eUiDGWbFifKU2MrEKYxHODEng"></div>
+        <div class="g-recaptcha" data-sitekey="RECAPTCHA_SITE_KEY_HERE"></div>
+        <!-- Insert your own Google reCAPTCHA site key above -->
 
         <button type="submit">Register</button>
       </form>
@@ -137,7 +145,7 @@
       formData.append('g-recaptcha-response', captcha);
 
       try {
-        const response = await fetch('backend/register.php', {
+        const response = await fetch('https://your-backend-domain.com/backend/register.php', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
