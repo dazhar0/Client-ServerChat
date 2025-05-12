@@ -66,4 +66,17 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (username) connectWebSocket();
+
+  // Add this if you have a file input for the main chat
+  document.getElementById("fileInput")?.addEventListener("change", async function() {
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    if (!file) return;
+    // You need to implement file upload logic here (e.g., Firebase or your backend)
+    // For demonstration, we'll just show the file name in the chat
+    const fileMsg = `[File: ${file.name}]`;
+    socket.send(JSON.stringify({ type: "message", username, message: encryptMessage(fileMsg) }));
+    displayMessage({ username, message: encryptMessage(fileMsg) });
+    fileInput.value = "";
+  });
 });
