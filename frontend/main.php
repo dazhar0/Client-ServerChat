@@ -481,6 +481,7 @@ $username = $_SESSION['username'];
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "message") {
+                // Only append, do not clear the chat window!
                 addMessage(data.from || 'Unknown', data.message, false, null, null, data.timestamp);
             } else if (data.type === "group_message_history") {
                 // Clear messages area and show history
