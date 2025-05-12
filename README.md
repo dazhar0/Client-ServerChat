@@ -1,6 +1,6 @@
 # Titan Secure Chat
 
-Titan Secure Chat is a real-time, secure chat application that allows users to communicate via public and private messages. It features user authentication, message encryption, file sharing, and online presence tracking. The application is built using a combination of PHP, JavaScript, and WebSocket technologies, and it leverages hosting services like **Render** and **InfinityFree**.
+Titan Secure Chat is a real-time, secure chat application that allows users to communicate via public and private messages. It features user authentication, message encryption, file sharing, and online presence tracking. The application is built using a combination of PHP, JavaScript, and WebSocket technologies.
 
 ---
 
@@ -21,9 +21,24 @@ Titan Secure Chat is a real-time, secure chat application that allows users to c
 - **Online Presence**: View which users are currently online.
 - **Message Encryption**: Messages are encrypted using AES for secure communication.
 
-### Hosting
-- **Backend**: Hosted on **InfinityFree** for PHP-based APIs and database interactions.
-- **WebSocket Server**: Hosted on **Render** for real-time communication.
+---
+
+## ⚠️ Important: Configure Secrets Before Deployment
+
+Before deploying or running this project, **you must configure all secrets and credentials** (such as database credentials, API keys, and encryption keys).  
+**Do not use placeholder values in production.**  
+- Set your secrets in a `.env` file or as environment variables (see `.env.example` or `.env` for reference).
+- Never commit real secrets or credentials to public repositories.
+- Update all placeholders in the codebase (e.g., database credentials, reCAPTCHA keys, WebSocket URLs, encryption keys) with your own secure values.
+
+---
+
+## Live Demo
+
+A professional implementation of this project is available at:  
+**[https://chatpageapp.kesug.com](https://chatpageapp.kesug.com)**
+
+Visit the link above to try out Titan Secure Chat in a live environment.
 
 ---
 
@@ -143,6 +158,7 @@ Client-ServerChat/
 ## Hosting Details
 - **Render**: Hosts the WebSocket server (`server.js`).
 - **InfinityFree**: Hosts the PHP backend and MySQL database.
+- **Demo/Production**: [https://chatpageapp.kesug.com](https://chatpageapp.kesug.com)
 
 ---
 
@@ -173,6 +189,3 @@ npm run dev
 - Add user profile pictures.
 
 ---
-
-## License
-This project is licensed under the ISC License.

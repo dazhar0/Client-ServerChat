@@ -113,7 +113,8 @@ if (isset($_SESSION['username'])) {
         <label for="password">Password:</label>
         <input type="password" id="password" required>
 
-        <div class="g-recaptcha" data-sitekey="6LeBJzYrAAAAAK-9nXYvSGFfXFQSLuEY9b3nBOoU"></div>
+        <div class="g-recaptcha" data-sitekey="RECAPTCHA_SITE_KEY_HERE"></div>
+        <!-- Insert your own Google reCAPTCHA site key above -->
 
         <button type="submit">Register</button>
       </form>
@@ -144,7 +145,7 @@ if (isset($_SESSION['username'])) {
       formData.append('g-recaptcha-response', captcha);
 
       try {
-        const response = await fetch('https://chatpageapp.kesug.com/backend/register.php', {
+        const response = await fetch('https://your-backend-domain.com/backend/register.php', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',

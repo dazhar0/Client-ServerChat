@@ -1,6 +1,6 @@
 <?php
-// Secret key (same as the frontend)
-define('SECRET_KEY', 'supersecretkey123');
+// WARNING: Replace with your actual secret key. Do NOT commit secrets to public repositories.
+define('SECRET_KEY', 'REPLACE_WITH_YOUR_SECRET_KEY');
 
 // Function to decrypt the message using AES
 function decryptMessage($encryptedMessage) {

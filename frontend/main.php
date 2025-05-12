@@ -1,4 +1,5 @@
 <?php
+// WARNING: Remove secrets and add your own configuration before deploying or sharing this file publicly.
 session_start();
 if (!isset($_SESSION['username'])) {
     header("Location: login.php");
@@ -325,22 +326,16 @@ $username = $_SESSION['username'];
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <!-- Add Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-    <script>
-      // Use your actual Firebase config (from the outdated file, with correct storageBucket)
-      const firebaseConfig = {
-            apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
-            authDomain: "titanchat-c7744.firebaseapp.com",
-            projectId: "titanchat-c7744",
-            storageBucket: "titanchat-c7744.firebasestorage.app",
-            messagingSenderId: "497019607900",
-            appId: "1:497019607900:web:473307535da7871514ff99",
-            measurementId: "G-31SZ89S1NC"
-      };
-      firebase.initializeApp(firebaseConfig);
-      const storage = firebase.storage();
-    </script>
+    <!-- 
+      IMPORTANT: Insert your own Firebase config here. 
+      Do NOT commit your real credentials to public repositories.
+      Example:
+      <script>
+        const firebaseConfig = { /* your config here */ };
+        firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
+      </script>
+    -->
 </head>
 <body>
     <div class="main-container">
@@ -383,8 +378,9 @@ $username = $_SESSION['username'];
         }
         
         const username = "<?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>";
-        const ws = new WebSocket("wss://client-serverchat-2rxg.onrender.com");
-        const SECRET_KEY = "your-very-strong-secret";
+        const ws = new WebSocket("wss://YOUR_WEBSOCKET_SERVER_URL"); // <-- Replace with your WebSocket server URL
+        // WARNING: Replace SECRET_KEY with a secure value in production. Do NOT commit secrets to public repositories.
+        const SECRET_KEY = "REPLACE_WITH_YOUR_SECRET_KEY";
         let selectedUser = null;
         let typingTimeout = null;
 
@@ -466,7 +462,7 @@ $username = $_SESSION['username'];
         }
 
         function updatePresence(status) {
-            fetch("https://chatpageapp.kesug.com/backend/update_presence.php", {
+            fetch("https://your-backend-domain.com/backend/update_presence.php", { // <-- Replace with your backend domain
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, online: status })
@@ -548,7 +544,7 @@ $username = $_SESSION['username'];
             formData.append("file", file);
 
             try {
-                const response = await fetch("../backend/upload_file.php", {
+                const response = await fetch("../backend/upload_file.php", { // <-- Replace with your backend domain
                     method: "POST",
                     body: formData
                 });
@@ -647,7 +643,7 @@ $username = $_SESSION['username'];
                 formData.append("file", file);
 
                 try {
-                    const response = await fetch("../backend/upload_file.php", {
+                    const response = await fetch("../backend/upload_file.php", { // <-- Replace with your backend domain
                         method: "POST",
                         body: formData
                     });
@@ -671,7 +667,7 @@ $username = $_SESSION['username'];
                     fileInput.value = "";
                 }
             });
-            fetch(`https://chatpageapp.kesug.com/backend/get_private_messages.php?user1=${encodeURIComponent(username)}&user2=${encodeURIComponent(to)}`)
+            fetch(`https://your-backend-domain.com/backend/get_private_messages.php?user1=${encodeURIComponent(username)}&user2=${encodeURIComponent(to)}`) // <-- Replace with your backend domain
                 .then(res => res.json())
                 .then(messages => {
                     const msgContainer = document.getElementById(`private-chat-${to}-messages`);
@@ -697,7 +693,7 @@ $username = $_SESSION['username'];
             ws.send(JSON.stringify(payload));
             document.getElementById(`private-send-btn-${to}`).style.transform = "scale(0.95)";
             setTimeout(() => document.getElementById(`private-send-btn-${to}`).style.transform = "", 120);
-            fetch("https://chatpageapp.kesug.com/backend/save_private_message.php", {
+            fetch("https://your-backend-domain.com/backend/save_private_message.php", { // <-- Replace with your backend domain
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -728,7 +724,7 @@ $username = $_SESSION['username'];
         }
 
         setInterval(() => {
-            fetch("https://chatpageapp.kesug.com/backend/presence.php")
+            fetch("https://your-backend-domain.com/backend/presence.php") // <-- Replace with your backend domain
                 .then(res => res.json())
                 .then(data => updateOnlineUsers(data))
                 .catch(err => console.error("Presence update error:", err));

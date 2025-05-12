@@ -1,3 +1,5 @@
+// WARNING: Do not commit real secrets or credentials to public repositories.
+
 const WebSocket = require('ws');
 const mysql = require('mysql2');
 require('dotenv').config();
