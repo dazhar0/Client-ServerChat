@@ -106,7 +106,7 @@
         <label for="password">Password:</label>
         <input type="password" id="password" required>
 
-        <div class="g-recaptcha" data-sitekey="6LdWeDUrAAAAAN_eUiDGWbFifKU2MrEKYxHODEng"></div>
+        <div class="g-recaptcha" data-sitekey="6LeBJzYrAAAAAK-9nXYvSGFfXFQSLuEY9b3nBOoU"></div>
 
         <button type="submit">Register</button>
       </form>
@@ -137,7 +137,7 @@
       formData.append('g-recaptcha-response', captcha);
 
       try {
-        const response = await fetch('backend/register.php', {
+        const response = await fetch('https://chatpageapp.kesug.com/backend/register.php', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',

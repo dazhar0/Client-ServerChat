@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     // Verify CAPTCHA
-    $secretKey = "6LdWeDUrAAAAABUeHMHApUy09VxayBj0mhE8wa-s";
+    $secretKey = "6LeBJzYrAAAAAFMK3-u2c_DGrp4I3-qelS805PED";
     $verifyResponse = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=$secretKey&response=$recaptchaResponse");
     $responseData = json_decode($verifyResponse, true);
 

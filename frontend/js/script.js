@@ -1,6 +1,6 @@
 let socket;
 let username = localStorage.getItem("username") || "";
-const serverUrl = "wss://client-serverchat.onrender.com"; // WebSocket server URL
+const serverUrl = "wss://client-serverchat-2rxg.onrender.com"; // WebSocket server URL
 
 function connectWebSocket() {
   if (!username) {

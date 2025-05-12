@@ -1,8 +1,8 @@
 <?php
-$host = 'sql103.infinityfree.com';
-$user = 'if0_38857895';
-$pass = 'RCsgAyp68zzNyx';
-$dbname = 'if0_38857895_chattitan';
+$host = 'sql100.infinityfree.com';
+$user = 'if0_38953579';
+$pass = 'jB1XtOLoTZc'; // Replace with your actual password if different
+$dbname = 'if0_38953579_phpinfinite';
 
 $conn = new mysqli($host, $user, $pass, $dbname);
 
