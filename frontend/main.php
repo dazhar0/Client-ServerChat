@@ -264,10 +264,22 @@ $username = $_SESSION['username'];
             document.getElementById("fileInput").click();
         };
 
+
         document.getElementById("fileInput").onchange = async () => {
             const file = document.getElementById("fileInput").files[0];
             if (!file) return;
+            const firebaseConfig = {
+            apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
+            authDomain: "titanchat-c7744.firebaseapp.com",
+            projectId: "titanchat-c7744",
+            storageBucket: "titanchat-c7744.firebasestorage.app",
+            messagingSenderId: "497019607900",
+            appId: "1:497019607900:web:473307535da7871514ff99",
+            measurementId: "G-31SZ89S1NC"
+        };
 
+        const app = firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
             // Create a reference to the Firebase Storage location (using your bucket path)
             const storageRef = firebase.storage().ref();
             const fileRef = storageRef.child(`chat_files/${file.name}`);
@@ -353,30 +365,31 @@ $username = $_SESSION['username'];
 
             </div>
             `;
-            document.getElementById("private-chat-area-container").appendChild(chatArea);
-            selectedUser = to;
-
-            document.getElementById(`fileInput-${to}`).onchange = () => {
+            document.getElementById(`fileInput-${to}`).onchange = async () => {
                 const file = document.getElementById(`fileInput-${to}`).files[0];
                 if (!file) return;
-                const formData = new FormData();
-                formData.append("file", file);
-                fetch("backend/upload_files.php", {
-                    method: "POST",
-                    body: formData
-                }).then(res => res.json()).then(data => {
-                    if (data.url) {
-                        const fileMsg = `[File: ${file.name}]\n${data.url}`;
-                        const payload = {
-                            type: "private_message",
-                            from: username,
-                            to,
-                            message: encrypt(fileMsg)
-                        };
-                        ws.send(JSON.stringify(payload));
-                    }
-                });
+
+                const storageRef = firebase.storage().ref();
+                const fileRef = storageRef.child(`chat_files/${file.name}`);
+
+                try {
+                    const snapshot = await fileRef.put(file);
+                    const downloadURL = await snapshot.ref.getDownloadURL();
+
+                    const fileMsg = `[File: ${file.name}]\n${downloadURL}`;
+                    const payload = {
+                        type: "private_message",
+                        from: username,
+                        to,
+                        message: encrypt(fileMsg)
+                    };
+                    ws.send(JSON.stringify(payload));
+                } catch (error) {
+                    console.error("Firebase upload failed:", error);
+                    alert("File upload failed.");
+                }
             };
+
 
             fetch(`backend/get_private_messages.php?user1=${username}&user2=${to}`)
                 .then(res => res.json())
@@ -436,20 +449,6 @@ $username = $_SESSION['username'];
                 .then(res => res.json())
                 .then(data => updateOnlineUsers(data));
         }, 5000);
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
-            authDomain: "titanchat-c7744.firebaseapp.com",
-            projectId: "titanchat-c7744",
-            storageBucket: "titanchat-c7744.firebasestorage.app",
-            messagingSenderId: "497019607900",
-            appId: "1:497019607900:web:473307535da7871514ff99",
-            measurementId: "G-31SZ89S1NC"
-        };
-
-        const app = firebase.initializeApp(firebaseConfig);
-        const storage = firebase.storage();
-
             </script>
 </body>
 </html>
