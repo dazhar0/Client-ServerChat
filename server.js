@@ -6,20 +6,18 @@ const server = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 let onlineUsers = {}; // { username: WebSocket }
 
-const db = mysql.createConnection({
+// Use a connection pool instead of a single connection
+const pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-db.connect((err) => {
-    if (err) {
-        console.error('Database connection error:', err);
-    } else {
-        console.log('Connected to MySQL');
-    }
-});
+// Remove db.connect(...) -- not needed for pools
 
 server.on('connection', (ws) => {
     let username = null;
@@ -106,7 +104,7 @@ server.on('connection', (ws) => {
 
     // Function to fetch old private messages
     function fetchOldMessages(fromUser, toUser, callback) {
-        db.query(
+        pool.query(
             "SELECT * FROM private_messages WHERE (from_user = ? AND to_user = ?) OR (from_user = ? AND to_user = ?) ORDER BY timestamp ASC",
             [fromUser, toUser, toUser, fromUser],
             (err, results) => {
@@ -132,7 +130,7 @@ server.on('connection', (ws) => {
     // Fetch and send latest group messages to a user
     function sendGroupMessages(ws) {
         // Fetch last 50 public messages (adjust as needed)
-        db.query(
+        pool.query(
             "SELECT `from`, message, created_at FROM messages WHERE is_private = 0 ORDER BY created_at ASC LIMIT 50",
             [],
             (err, results) => {
@@ -164,20 +162,20 @@ server.on('connection', (ws) => {
     }
 
     function updatePresence(username, status) {
-        db.query("UPDATE users SET online = ? WHERE username = ?", [status, username], (err) => {
+        pool.query("UPDATE users SET online = ? WHERE username = ?", [status, username], (err) => {
             if (err) console.error('Presence error:', err);
         });
     }
 
     function savePublicMessage(from, message) {
-        db.query("INSERT INTO messages (`from`, message, is_private) VALUES (?, ?, 0)", [from, message], (err) => {
+        pool.query("INSERT INTO messages (`from`, message, is_private) VALUES (?, ?, 0)", [from, message], (err) => {
             if (err) console.error('Save public message error:', err);
         });
     }
 
     function savePrivateMessage(from, to, message) {
         const timestamp = new Date().toISOString();
-        db.query("INSERT INTO private_messages (from_user, to_user, message, timestamp, delivered) VALUES (?, ?, ?, ?, ?)", 
+        pool.query("INSERT INTO private_messages (from_user, to_user, message, timestamp, delivered) VALUES (?, ?, ?, ?, ?)", 
             [from, to, message, timestamp, onlineUsers[to] ? 1 : 0], 
             (err) => {
                 if (err) console.error('Save private message error:', err);
@@ -186,7 +184,7 @@ server.on('connection', (ws) => {
     }
 
     function loadOfflineMessages(username) {
-        db.query("SELECT * FROM private_messages WHERE to_user = ? AND delivered = 0", [username], (err, results) => {
+        pool.query("SELECT * FROM private_messages WHERE to_user = ? AND delivered = 0", [username], (err, results) => {
             if (err) {
                 console.error('Load offline messages error:', err);
                 return;
@@ -199,7 +197,7 @@ server.on('connection', (ws) => {
                         to: row.to_user,
                         message: row.message
                     }));
-                    db.query("UPDATE private_messages SET delivered = 1 WHERE id = ?", [row.id]);
+                    pool.query("UPDATE private_messages SET delivered = 1 WHERE id = ?", [row.id]);
                 }
             });
         });
