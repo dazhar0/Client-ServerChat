@@ -328,12 +328,12 @@ $username = $_SESSION['username'];
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script>
-      // Use your actual Firebase config (from the outdated file, with correct storageBucket)
+      // Use your actual Firebase config (with correct storageBucket)
       const firebaseConfig = {
             apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
             authDomain: "titanchat-c7744.firebaseapp.com",
             projectId: "titanchat-c7744",
-            storageBucket: "titanchat-c7744.firebasestorage.app",
+            storageBucket: "titanchat-c7744.appspot.com",
             messagingSenderId: "497019607900",
             appId: "1:497019607900:web:473307535da7871514ff99",
             measurementId: "G-31SZ89S1NC"
@@ -482,6 +482,13 @@ $username = $_SESSION['username'];
             const data = JSON.parse(event.data);
             if (data.type === "message") {
                 addMessage(data.from || 'Unknown', data.message, false, null, null, data.timestamp);
+            } else if (data.type === "group_message_history") {
+                // Clear messages area and show history
+                const messagesDiv = document.getElementById("messages");
+                messagesDiv.innerHTML = "";
+                data.messages.forEach(msg => {
+                    addMessage(msg.from, msg.message, false, null, null, msg.created_at);
+                });
             } else if (data.type === "private_message") {
                 const peer = data.from === username ? data.to : data.from;
                 if (data.from !== username) {
@@ -489,6 +496,19 @@ $username = $_SESSION['username'];
                     addMessage(data.from, data.message, true, peer, null, data.timestamp);
                 } else {
                     addMessage(data.from, data.message, true, peer, null, data.timestamp);
+                }
+            } else if (data.type === "old_private_messages") {
+                // Show private message history in the private chat window
+                if (data.messages && data.messages.length > 0) {
+                    const peer = data.messages[0].from_user === username
+                        ? data.messages[0].to_user
+                        : data.messages[0].from_user;
+                    openPrivateChat(peer);
+                    const msgContainer = document.getElementById(`private-chat-${peer}-messages`);
+                    msgContainer.innerHTML = "";
+                    data.messages.forEach(msg => {
+                        addMessage(msg.from_user, msg.message, true, peer, msgContainer, msg.timestamp);
+                    });
                 }
             } else if (data.type === "online_users") {
                 updateOnlineUsers(data.users);
@@ -543,29 +563,20 @@ $username = $_SESSION['username'];
             const fileInput = document.getElementById("fileInput");
             const file = fileInput.files[0];
             if (!file) return;
-
-            const formData = new FormData();
-            formData.append("file", file);
-
+            const storageRef = storage.ref().child('chat_files/' + Date.now() + '_' + file.name);
             try {
-                const response = await fetch("../backend/upload_file.php", {
-                    method: "POST",
-                    body: formData
-                });
-                const result = await response.json();
-                if (result.url) {
-                    const fileMsg = `[File: ${file.name}]\n${result.url}`;
-                    const payload = {
-                        type: selectedUser ? "private_message" : "message",
-                        from: username,
-                        to: selectedUser || undefined,
-                        message: encrypt(fileMsg),
-                        timestamp: formatTime()
-                    };
-                    ws.send(JSON.stringify(payload));
-                } else {
-                    alert("Upload failed: " + (result.error || "Unknown error"));
-                }
+                const snapshot = await storageRef.put(file);
+                const url = await snapshot.ref.getDownloadURL();
+                const fileMsg = `[File: ${file.name}]\n${url}`;
+                const payload = {
+                    type: selectedUser ? "private_message" : "message",
+                    from: username,
+                    to: selectedUser || undefined,
+                    message: encrypt(fileMsg),
+                    timestamp: formatTime()
+                };
+                ws.send(JSON.stringify(payload));
+                // Do NOT call addMessage here; let the server echo it back
                 fileInput.value = "";
             } catch (e) {
                 alert("Upload failed.");
@@ -642,29 +653,20 @@ $username = $_SESSION['username'];
                 const fileInput = document.getElementById(`fileInput-${to}`);
                 const file = fileInput.files[0];
                 if (!file) return;
-
-                const formData = new FormData();
-                formData.append("file", file);
-
+                const storageRef = storage.ref().child('chat_files/' + Date.now() + '_' + file.name);
                 try {
-                    const response = await fetch("../backend/upload_file.php", {
-                        method: "POST",
-                        body: formData
-                    });
-                    const result = await response.json();
-                    if (result.url) {
-                        const fileMsg = `[File: ${file.name}]\n${result.url}`;
-                        const payload = {
-                            type: "private_message",
-                            from: username,
-                            to,
-                            message: encrypt(fileMsg),
-                            timestamp: formatTime()
-                        };
-                        ws.send(JSON.stringify(payload));
-                    } else {
-                        alert("Upload failed: " + (result.error || "Unknown error"));
-                    }
+                    const snapshot = await storageRef.put(file);
+                    const url = await snapshot.ref.getDownloadURL();
+                    const fileMsg = `[File: ${file.name}]\n${url}`;
+                    const payload = {
+                        type: "private_message",
+                        from: username,
+                        to,
+                        message: encrypt(fileMsg),
+                        timestamp: formatTime()
+                    };
+                    ws.send(JSON.stringify(payload));
+                    // Do NOT call addMessage here; let the server echo it back
                     fileInput.value = "";
                 } catch (e) {
                     alert("Upload failed.");

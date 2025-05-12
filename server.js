@@ -41,6 +41,9 @@ server.on('connection', (ws) => {
             sendOnlineUsers();
             broadcast({ type: 'user_joined', username });
 
+            // Send latest group messages to the user
+            sendGroupMessages(ws);
+
         } else if (data.type === 'leave') {
             if (username) {
                 updatePresence(username, 0);
@@ -122,6 +125,25 @@ server.on('connection', (ws) => {
                 }));
 
                 callback(messages);
+            }
+        );
+    }
+
+    // Fetch and send latest group messages to a user
+    function sendGroupMessages(ws) {
+        // Fetch last 50 public messages (adjust as needed)
+        db.query(
+            "SELECT `from`, message, created_at FROM messages WHERE is_private = 0 ORDER BY created_at ASC LIMIT 50",
+            [],
+            (err, results) => {
+                if (err) {
+                    console.error('Error fetching group messages:', err);
+                    return;
+                }
+                ws.send(JSON.stringify({
+                    type: 'group_message_history',
+                    messages: results
+                }));
             }
         );
     }

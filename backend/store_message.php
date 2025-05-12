@@ -3,18 +3,18 @@ include 'db.php';
 header("Content-Type: application/json");
 
 // Check if all necessary parameters are provided
-if (empty($_POST['sender_id']) || empty($_POST['receiver_id']) || empty($_POST['message'])) {
-    echo json_encode(['status' => 'error', 'message' => 'Sender ID, Receiver ID, and message are required']);
+if (empty($_POST['from_user']) || empty($_POST['to_user']) || empty($_POST['message'])) {
+    echo json_encode(['status' => 'error', 'message' => 'from_user, to_user, and message are required']);
     exit;
 }
 
-$sender_id = $_POST['sender_id'];
-$receiver_id = $_POST['receiver_id'];
+$from_user = $_POST['from_user'];
+$to_user = $_POST['to_user'];
 $message = $_POST['message'];
 
 // Prepare and execute the query
-$stmt = $conn->prepare("INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)");
-$stmt->bind_param("sss", $sender_id, $receiver_id, $message);
+$stmt = $conn->prepare("INSERT INTO private_messages (from_user, to_user, message, timestamp, delivered) VALUES (?, ?, ?, NOW(), 0)");
+$stmt->bind_param("sss", $from_user, $to_user, $message);
 
 if ($stmt->execute()) {
     echo json_encode(['status' => 'success', 'message' => 'Message stored successfully']);
