@@ -325,17 +325,7 @@ $username = $_SESSION['username'];
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <!-- Add Firebase SDKs -->
-    <!-- 
-      IMPORTANT: Insert your own Firebase config here. 
-      Do NOT commit your real credentials to public repositories.
-      Example:
-      <script>
-        const firebaseConfig = { /* your config here */ };
-        firebase.initializeApp(firebaseConfig);
-        const storage = firebase.storage();
-      </script>
-    -->
+
 </head>
 <body>
     <div class="main-container">
@@ -415,41 +405,24 @@ $username = $_SESSION['username'];
             const text = decrypt(encryptedText);
             const targetDiv = container || (isPrivate ? document.getElementById(`private-chat-${peer}-messages`) : document.getElementById("messages"));
             if (!targetDiv) return;
+            const senderName = sender === username ? "You" : sender;
+            const msg = document.createElement("div");
+            msg.className = isPrivate ? "private-message" : "message";
 
-            const isYou = sender === username;
-            const row = document.createElement("div");
-            row.className = "bubble-row " + (isYou ? "you" : "other");
-
-            if (!isYou) {
-                const avatar = document.createElement("div");
-                avatar.className = "bubble-avatar";
-                avatar.textContent = getInitials(sender);
-                row.appendChild(avatar);
-            }
-
-            const bubble = document.createElement("div");
-            bubble.className = "chat-bubble";
-            // Detect file message and render as link
-            if (text.startsWith("[File: ")) {
-                const match = text.match(/^\[File: (.+?)\]\n(.+)$/);
+            // Check if the message is a file
+            if (text.startsWith('[File:')) {
+                const regex = /\[File: (.*?)\]\n(https?:\/\/[^\s]+)/;
+                const match = text.match(regex);
                 if (match) {
                     const fileName = match[1];
                     const fileUrl = match[2];
-                    bubble.innerHTML = `<span><a href="${escapeHTML(fileUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(fileName)}</a></span>`;
-                } else {
-                    bubble.innerHTML = `<span>${escapeHTML(text)}</span>`;
+                    msg.innerHTML = `<span class="sender">${senderName} (private):</span> <a href="${fileUrl}" target="_blank">${fileName}</a>`;
                 }
             } else {
-                bubble.innerHTML = `<span>${escapeHTML(text)}</span>`;
+                msg.innerHTML = `<span class="sender">${senderName}${isPrivate ? " (private)" : ""}:</span> ${text}`;
             }
-            row.appendChild(bubble);
+            targetDiv.appendChild(msg);
 
-            const meta = document.createElement("div");
-            meta.className = "bubble-meta";
-            meta.textContent = (isYou ? "You" : sender) + " • " + (timestamp || formatTime());
-            bubble.appendChild(meta);
-
-            targetDiv.appendChild(row);
             targetDiv.scrollTop = targetDiv.scrollHeight;
         }
 
@@ -460,6 +433,7 @@ $username = $_SESSION['username'];
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => indicator.style.display = "none", 1500);
         }
+
 
         function updatePresence(status) {
             fetch("https://your-backend-domain.com/backend/update_presence.php", { // <-- Replace with your backend domain
@@ -475,23 +449,27 @@ $username = $_SESSION['username'];
         };
 
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === "message") {
-                addMessage(data.from || 'Unknown', data.message, false, null, null, data.timestamp);
-            } else if (data.type === "private_message") {
-                const peer = data.from === username ? data.to : data.from;
-                if (data.from !== username) {
-                    openPrivateChat(peer);
-                    addMessage(data.from, data.message, true, peer, null, data.timestamp);
-                } else {
-                    addMessage(data.from, data.message, true, peer, null, data.timestamp);
-                }
-            } else if (data.type === "online_users") {
-                updateOnlineUsers(data.users);
-            } else if (data.type === "typing" && data.from !== username) {
-                showTypingIndicator(data.from);
+        const data = JSON.parse(event.data);
+        if (data.type === "message") {
+            const sender = data.from || 'Unknown'; 
+            addMessage(sender, data.message);
+        } else if (data.type === "private_message") {
+            const sender = data.from;
+            const peer = sender === username ? data.to : sender;
+
+            if (sender !== username) {
+                openPrivateChat(peer); 
+                addMessage(sender, data.message, true, peer);
             }
-        };
+
+            if (sender === username) {
+                addMessage(sender, data.message, true, peer); 
+            }
+        } else if (data.type === "online_users") {
+            updateOnlineUsers(data.users);
+        }
+};
+
 
         ws.onerror = (error) => {
             console.error("WebSocket error:", error);
@@ -535,41 +513,51 @@ $username = $_SESSION['username'];
             document.getElementById("fileInput").click();
         });
 
-        document.getElementById("fileInput").addEventListener("change", async () => {
-            const fileInput = document.getElementById("fileInput");
-            const file = fileInput.files[0];
+        document.getElementById("fileInput").onchange = async () => {
+            const file = document.getElementById("fileInput").files[0];
             if (!file) return;
+            const firebaseConfig = {
+            apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
+            authDomain: "titanchat-c7744.firebaseapp.com",
+            projectId: "titanchat-c7744",
+            storageBucket: "titanchat-c7744.firebasestorage.app",
+            messagingSenderId: "497019607900",
+            appId: "1:497019607900:web:473307535da7871514ff99",
+            measurementId: "G-31SZ89S1NC"
+        };
 
-            const formData = new FormData();
-            formData.append("file", file);
+        const app = firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
+            // Create a reference to the Firebase Storage location (using your bucket path)
+            const storageRef = firebase.storage().ref();
+            const fileRef = storageRef.child(`chat_files/${file.name}`);
 
             try {
-                const response = await fetch("../backend/upload_file.php", { // <-- Replace with your backend domain
-                    method: "POST",
-                    body: formData
-                });
-                const result = await response.json();
-                if (result.url) {
-                    const fileMsg = `[File: ${file.name}]\n${result.url}`;
-                    const payload = {
-                        type: selectedUser ? "private_message" : "message",
-                        from: username,
-                        to: selectedUser || undefined,
-                        message: encrypt(fileMsg),
-                        timestamp: formatTime()
-                    };
-                    ws.send(JSON.stringify(payload));
-                } else {
-                    alert("Upload failed: " + (result.error || "Unknown error"));
-                }
-                fileInput.value = "";
-            } catch (e) {
-                alert("Upload failed.");
-                fileInput.value = "";
-            }
-        });
+                // Upload the file to Firebase Storage
+                const snapshot = await fileRef.put(file);
+                
+                // Get the download URL of the uploaded file
+                const downloadURL = await snapshot.ref.getDownloadURL();
 
-        document.getElementById("emojiBtn").addEventListener("click", () => {
+                // Send the file message with the URL
+                const fileMsg = `[File: ${file.name}]\n${downloadURL}`;
+                const payload = {
+                    type: "private_message",
+                    from: username,
+                    to: selectedUser,
+                    message: encrypt(fileMsg)
+                };
+                ws.send(JSON.stringify(payload)); // Send the file message through WebSocket
+            } catch (error) {
+                console.error("Error uploading file:", error);
+                alert("File upload failed.");
+            }
+        };
+
+
+
+
+        document.getElementById("emojiBtn").onclick = () => {
             const picker = document.getElementById("emoji-picker");
             picker.style.display = picker.style.display === "block" ? "none" : "block";
         });
@@ -624,50 +612,34 @@ $username = $_SESSION['username'];
                     </div>
                 </div>
             `;
-            document.getElementById("private-chat-area-container").appendChild(chatArea);
-            selectedUser = to;
-            document.getElementById(`private-input-${to}`).addEventListener("keydown", function(e) {
-                if (e.key === "Enter") {
-                    e.preventDefault();
-                    document.getElementById(`private-send-btn-${to}`).click();
-                } else {
-                    ws.send(JSON.stringify({ type: "typing", from: username }));
-                }
-            });
-            document.getElementById(`fileInput-${to}`).addEventListener("change", async () => {
-                const fileInput = document.getElementById(`fileInput-${to}`);
-                const file = fileInput.files[0];
+            document.getElementById(`fileInput-${to}`).onchange = async () => {
+                const file = document.getElementById(`fileInput-${to}`).files[0];
                 if (!file) return;
 
-                const formData = new FormData();
-                formData.append("file", file);
+                const storageRef = firebase.storage().ref();
+                const fileRef = storageRef.child(`chat_files/${file.name}`);
 
                 try {
-                    const response = await fetch("../backend/upload_file.php", { // <-- Replace with your backend domain
-                        method: "POST",
-                        body: formData
-                    });
-                    const result = await response.json();
-                    if (result.url) {
-                        const fileMsg = `[File: ${file.name}]\n${result.url}`;
-                        const payload = {
-                            type: "private_message",
-                            from: username,
-                            to,
-                            message: encrypt(fileMsg),
-                            timestamp: formatTime()
-                        };
-                        ws.send(JSON.stringify(payload));
-                    } else {
-                        alert("Upload failed: " + (result.error || "Unknown error"));
-                    }
-                    fileInput.value = "";
-                } catch (e) {
-                    alert("Upload failed.");
-                    fileInput.value = "";
+                    const snapshot = await fileRef.put(file);
+                    const downloadURL = await snapshot.ref.getDownloadURL();
+
+                    const fileMsg = `[File: ${file.name}]\n${downloadURL}`;
+                    const payload = {
+                        type: "private_message",
+                        from: username,
+                        to,
+                        message: encrypt(fileMsg)
+                    };
+                    ws.send(JSON.stringify(payload));
+                } catch (error) {
+                    console.error("Firebase upload failed:", error);
+                    alert("File upload failed.");
                 }
-            });
-            fetch(`https://your-backend-domain.com/backend/get_private_messages.php?user1=${encodeURIComponent(username)}&user2=${encodeURIComponent(to)}`) // <-- Replace with your backend domain
+            };
+
+
+            fetch(`backend/get_private_messages.php?user1=${username}&user2=${to}`)
+
                 .then(res => res.json())
                 .then(messages => {
                     const msgContainer = document.getElementById(`private-chat-${to}-messages`);
@@ -729,6 +701,6 @@ $username = $_SESSION['username'];
                 .then(data => updateOnlineUsers(data))
                 .catch(err => console.error("Presence update error:", err));
         }, 5000);
-    </script>
+            </script>
 </body>
 </html>
