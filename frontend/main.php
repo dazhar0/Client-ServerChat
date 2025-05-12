@@ -128,6 +128,9 @@ $username = $_SESSION['username'];
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+
 </head>
 <body>
     <div id="chat-container">
@@ -249,29 +252,34 @@ $username = $_SESSION['username'];
             document.getElementById("fileInput").click();
         };
 
-        document.getElementById("fileInput").onchange = () => {
+        document.getElementById("fileInput").onchange = async () => {
             const file = document.getElementById("fileInput").files[0];
             if (!file) return;
-            const formData = new FormData();
-            formData.append("file", file);
-            fetch("backend/upload_files.php", {
-                method: "POST",
-                body: formData
-            }).then(res => res.json()).then(data => {
-                if (data.url) {
-                    const fileMsg = `[File: ${file.name}]\n${data.url}`;
-                    const payload = {
-                        type: "private_message",
-                        from: username,
-                        to: selectedUser,
-                        message: encrypt(fileMsg)
-                    };
-                    ws.send(JSON.stringify(payload));
-                } else {
-                    alert("Upload failed.");
-                }
-            });
-        };
+
+            // Create a reference to the Firebase Storage location
+            const storageRef = storage.ref();
+            const fileRef = storageRef.child('chat_files/' + file.name);
+
+            try {
+                // Upload the file
+                const snapshot = await fileRef.put(file);
+                const downloadURL = await snapshot.ref.getDownloadURL();
+
+                // Send the file message with the URL
+                const fileMsg = `[File: ${file.name}]\n${downloadURL}`;
+                const payload = {
+                    type: "private_message",
+                    from: username,
+                    to: selectedUser,
+                    message: encrypt(fileMsg)
+                };
+                ws.send(JSON.stringify(payload));
+            } catch (error) {
+                console.error("Error uploading file:", error);
+                alert("File upload failed.");
+            }
+};
+
 
         document.getElementById("emojiBtn").onclick = () => {
             const picker = document.getElementById("emoji-picker");
@@ -412,6 +420,20 @@ $username = $_SESSION['username'];
                 .then(res => res.json())
                 .then(data => updateOnlineUsers(data));
         }, 5000);
-    </script>
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
+            authDomain: "titanchat-c7744.firebaseapp.com",
+            projectId: "titanchat-c7744",
+            storageBucket: "titanchat-c7744.firebasestorage.app",
+            messagingSenderId: "497019607900",
+            appId: "1:497019607900:web:473307535da7871514ff99",
+            measurementId: "G-31SZ89S1NC"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
+
+            </script>
 </body>
 </html>
