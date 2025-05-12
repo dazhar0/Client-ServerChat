@@ -323,28 +323,22 @@ $username = $_SESSION['username'];
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
-    <!-- CryptoJS for encryption -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <!-- Firebase SDKs; using compat versions for now -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script>
-      // Initialize Firebase only once at startup (outside any event handler)
+      // Use your actual Firebase config (from the outdated file, with correct storageBucket)
       const firebaseConfig = {
-        apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
-        authDomain: "titanchat-c7744.firebaseapp.com",
-        projectId: "titanchat-c7744",
-        // IMPORTANT: Verify your storageBucket – your older config uses "titanchat-c7744.firebasestorage.app", 
-        // but typically it is "titanchat-c7744.appspot.com". Adjust as necessary.
-        storageBucket: "titanchat-c7744.firebasestorage.app",
-        messagingSenderId: "497019607900",
-        appId: "1:497019607900:web:473307535da7871514ff99",
-        measurementId: "G-31SZ89S1NC"
+            apiKey: "AIzaSyCMgKRbtatng1C8_e1IZXG4pACPemKali4",
+            authDomain: "titanchat-c7744.firebaseapp.com",
+            projectId: "titanchat-c7744",
+            storageBucket: "titanchat-c7744.firebasestorage.app",
+            messagingSenderId: "497019607900",
+            appId: "1:497019607900:web:473307535da7871514ff99",
+            measurementId: "G-31SZ89S1NC"
       };
-      // Avoid re-initialization if already initialized
-      if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
+      firebase.initializeApp(firebaseConfig);
       const storage = firebase.storage();
     </script>
 </head>
@@ -379,7 +373,7 @@ $username = $_SESSION['username'];
     <div id="private-chat-area-container"></div>
     <!-- JavaScript -->
     <script>
-        // Utility function to escape HTML strings
+        // Utility function to escape HTML strings (to prevent XSS)
         function escapeHTML(str) {
             return str.replace(/&/g, "&amp;")
                       .replace(/</g, "&lt;")
@@ -389,7 +383,7 @@ $username = $_SESSION['username'];
         }
         
         const username = "<?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>";
-        const ws = new WebSocket("wss://client-serverchat.onrender.com");
+        const ws = new WebSocket("wss://client-serverchat-2rxg.onrender.com");
         const SECRET_KEY = "your-very-strong-secret";
         let selectedUser = null;
         let typingTimeout = null;
@@ -439,14 +433,9 @@ $username = $_SESSION['username'];
 
             const bubble = document.createElement("div");
             bubble.className = "chat-bubble";
-            // If file message detected, render as link
+            // Detect file message and render as link
             if (text.startsWith("[File: ")) {
-                const regex = /^
-
-\[File: (.+?)\]
-
-\n(https?:\/\/[^\s]+)/;
-                const match = text.match(regex);
+                const match = text.match(/^\[File: (.+?)\]\n(.+)$/);
                 if (match) {
                     const fileName = match[1];
                     const fileUrl = match[2];
@@ -514,8 +503,9 @@ $username = $_SESSION['username'];
 
         ws.onclose = () => updatePresence(0);
         window.addEventListener("beforeunload", () => {
-            if (ws.readyState === WebSocket.OPEN)
+            if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: "leave", username }));
+            }
             updatePresence(0);
         });
 
@@ -550,29 +540,36 @@ $username = $_SESSION['username'];
         });
 
         document.getElementById("fileInput").addEventListener("change", async () => {
-            const file = document.getElementById("fileInput").files[0];
+            const fileInput = document.getElementById("fileInput");
+            const file = fileInput.files[0];
             if (!file) return;
-            // Use the globally initialized Firebase storage
-            const storageRef = storage.ref();
-            const fileRef = storageRef.child(`chat_files/${Date.now()}_${file.name}`);
+
+            const formData = new FormData();
+            formData.append("file", file);
+
             try {
-                // Upload the file
-                const snapshot = await fileRef.put(file);
-                const downloadURL = await snapshot.ref.getDownloadURL();
-                const fileMsg = `[File: ${file.name}]\n${downloadURL}`;
-                const payload = {
-                    type: selectedUser ? "private_message" : "message",
-                    from: username,
-                    to: selectedUser || undefined,
-                    message: encrypt(fileMsg),
-                    timestamp: formatTime()
-                };
-                ws.send(JSON.stringify(payload));
-                addMessage(username, payload.message, !!selectedUser, selectedUser);
-                document.getElementById("fileInput").value = "";
+                const response = await fetch("../backend/upload_file.php", {
+                    method: "POST",
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.url) {
+                    const fileMsg = `[File: ${file.name}]\n${result.url}`;
+                    const payload = {
+                        type: selectedUser ? "private_message" : "message",
+                        from: username,
+                        to: selectedUser || undefined,
+                        message: encrypt(fileMsg),
+                        timestamp: formatTime()
+                    };
+                    ws.send(JSON.stringify(payload));
+                } else {
+                    alert("Upload failed: " + (result.error || "Unknown error"));
+                }
+                fileInput.value = "";
             } catch (e) {
-                console.error("Error uploading file:", e);
-                alert("File upload failed.");
+                alert("Upload failed.");
+                fileInput.value = "";
             }
         });
 
@@ -581,14 +578,20 @@ $username = $_SESSION['username'];
             picker.style.display = picker.style.display === "block" ? "none" : "block";
         });
 
+        // Sign out logic
+        document.getElementById("signout-btn").addEventListener("click", async function() {
+            try {
+                await fetch("logout.php", { method: "POST", credentials: "same-origin" });
+            } catch (e) {}
+            window.location.href = "login.php";
+        });
+
         function updateOnlineUsers(users) {
             const onlineDiv = document.getElementById("online-users");
-            onlineDiv.innerHTML = "<b>Online Users:</b><br>" +
-                users.filter(u => u.online == 1)
-                    .map(u => `<span class="user" data-username="${escapeHTML(u.username)}">
-                                <span class="user-avatar">${getInitials(u.username)}</span>${escapeHTML(u.username)}
-                             </span>`)
-                    .join("");
+            onlineDiv.innerHTML = users.filter(u => u.online == 1)
+                .map(u => `<span class="user" data-username="${escapeHTML(u.username)}">
+                            <span class="user-avatar">${getInitials(u.username)}</span>${escapeHTML(u.username)}
+                         </span>`).join("");
             document.querySelectorAll(".user").forEach(el => {
                 el.addEventListener("click", () => {
                     const to = el.dataset.username;
@@ -613,10 +616,10 @@ $username = $_SESSION['username'];
                 <div class="private-messages" id="private-chat-${to}-messages"></div>
                 <div class="private-input-wrapper" style="position: relative;">
                     <input type="text" class="private-input" id="private-input-${to}" placeholder="Type a message" autocomplete="off">
-                    <input type="file" id="fileInput-${to}" style="display:none;">
                     <button onclick="sendPrivateMessage('${escapeHTML(to)}')" id="private-send-btn-${to}">Send</button>
-                    <button onclick="document.getElementById('fileInput-${to}').click();" id="private-file-btn-${to}">&#128206;</button>
                     <button onclick="toggleEmojiPicker('${escapeHTML(to)}')" id="private-emoji-btn-${to}">&#128515;</button>
+                    <input type="file" id="fileInput-${to}" style="display:none;">
+                    <button onclick="document.getElementById('fileInput-${to}').click();" id="private-file-btn-${to}">&#128206;</button>
                     <div id="emoji-picker-${to}" class="emoji-picker" style="display:none; position:absolute; bottom: 40px; left: 0; background:#fff; border:1px solid #ccc; padding:5px; border-radius:5px; z-index:100;">
                         <span class="emoji" onclick="addEmojiTo('${escapeHTML(to)}', '😊')">😊</span>
                         <span class="emoji" onclick="addEmojiTo('${escapeHTML(to)}', '😂')">😂</span>
@@ -636,27 +639,36 @@ $username = $_SESSION['username'];
                 }
             });
             document.getElementById(`fileInput-${to}`).addEventListener("change", async () => {
-                const file = document.getElementById(`fileInput-${to}`).files[0];
+                const fileInput = document.getElementById(`fileInput-${to}`);
+                const file = fileInput.files[0];
                 if (!file) return;
-                const storageRef = storage.ref();
-                const fileRef = storageRef.child(`chat_files/${Date.now()}_${file.name}`);
+
+                const formData = new FormData();
+                formData.append("file", file);
+
                 try {
-                    const snapshot = await fileRef.put(file);
-                    const downloadURL = await snapshot.ref.getDownloadURL();
-                    const fileMsg = `[File: ${file.name}]\n${downloadURL}`;
-                    const payload = {
-                        type: "private_message",
-                        from: username,
-                        to,
-                        message: encrypt(fileMsg),
-                        timestamp: formatTime()
-                    };
-                    ws.send(JSON.stringify(payload));
-                    addMessage(username, payload.message, true, to);
-                    document.getElementById(`fileInput-${to}`).value = "";
-                } catch (error) {
-                    console.error("Firebase upload failed:", error);
-                    alert("File upload failed.");
+                    const response = await fetch("../backend/upload_file.php", {
+                        method: "POST",
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (result.url) {
+                        const fileMsg = `[File: ${file.name}]\n${result.url}`;
+                        const payload = {
+                            type: "private_message",
+                            from: username,
+                            to,
+                            message: encrypt(fileMsg),
+                            timestamp: formatTime()
+                        };
+                        ws.send(JSON.stringify(payload));
+                    } else {
+                        alert("Upload failed: " + (result.error || "Unknown error"));
+                    }
+                    fileInput.value = "";
+                } catch (e) {
+                    alert("Upload failed.");
+                    fileInput.value = "";
                 }
             });
             fetch(`https://chatpageapp.kesug.com/backend/get_private_messages.php?user1=${encodeURIComponent(username)}&user2=${encodeURIComponent(to)}`)
@@ -664,7 +676,9 @@ $username = $_SESSION['username'];
                 .then(messages => {
                     const msgContainer = document.getElementById(`private-chat-${to}-messages`);
                     if (messages.status === "success") {
-                        messages.messages.forEach(msg => addMessage(msg.from, msg.message, true, to, msgContainer, msg.timestamp));
+                        messages.messages.forEach(msg => {
+                            addMessage(msg.from, msg.message, true, to, msgContainer, msg.timestamp);
+                        });
                     }
                 });
         }
