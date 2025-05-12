@@ -184,10 +184,23 @@ $username = $_SESSION['username'];
             const senderName = sender === username ? "You" : sender;
             const msg = document.createElement("div");
             msg.className = isPrivate ? "private-message" : "message";
-            msg.innerHTML = `<span class="sender">${senderName}${isPrivate ? " (private)" : ""}:</span> ${text}`;
+
+            // Check if the message is a file
+            if (text.startsWith('[File:')) {
+                const regex = /\[File: (.*?)\]\n(https?:\/\/[^\s]+)/;
+                const match = text.match(regex);
+                if (match) {
+                    const fileName = match[1];
+                    const fileUrl = match[2];
+                    msg.innerHTML = `<span class="sender">${senderName} (private):</span> <a href="${fileUrl}" target="_blank">${fileName}</a>`;
+                }
+            } else {
+                msg.innerHTML = `<span class="sender">${senderName}${isPrivate ? " (private)" : ""}:</span> ${text}`;
+            }
             targetDiv.appendChild(msg);
             targetDiv.scrollTop = targetDiv.scrollHeight;
         }
+
 
 
         function updatePresence(status) {
@@ -204,28 +217,27 @@ $username = $_SESSION['username'];
         };
 
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === "message") {
-                const sender = data.from || 'Unknown'; // always use 'from'
-                addMessage(sender, data.message);
-            } else if (data.type === "private_message") {
-                const sender = data.from;
-                const peer = sender === username ? data.to : sender;
+        const data = JSON.parse(event.data);
+        if (data.type === "message") {
+            const sender = data.from || 'Unknown'; 
+            addMessage(sender, data.message);
+        } else if (data.type === "private_message") {
+            const sender = data.from;
+            const peer = sender === username ? data.to : sender;
 
-                // Prevent adding the sender's message again for themselves
-                if (sender !== username) {
-                    openPrivateChat(peer); // Open private chat with the peer
-                    addMessage(sender, data.message, true, peer);
-                }
-
-                // Only add the message to the sender's chat once, skip if it's the sender
-                if (sender === username) {
-                    addMessage(sender, data.message, true, peer);  // This will prevent duplication for the sender
-                }
-            } else if (data.type === "online_users") {
-                updateOnlineUsers(data.users);
+            if (sender !== username) {
+                openPrivateChat(peer); 
+                addMessage(sender, data.message, true, peer);
             }
-        };
+
+            if (sender === username) {
+                addMessage(sender, data.message, true, peer); 
+            }
+        } else if (data.type === "online_users") {
+            updateOnlineUsers(data.users);
+        }
+};
+
 
         ws.onclose = () => updatePresence(0);
         window.addEventListener("beforeunload", () => {
@@ -256,13 +268,15 @@ $username = $_SESSION['username'];
             const file = document.getElementById("fileInput").files[0];
             if (!file) return;
 
-            // Create a reference to the Firebase Storage location
-            const storageRef = storage.ref();
-            const fileRef = storageRef.child('chat_files/' + file.name);
+            // Create a reference to the Firebase Storage location (using your bucket path)
+            const storageRef = firebase.storage().ref();
+            const fileRef = storageRef.child(`chat_files/${file.name}`);
 
             try {
-                // Upload the file
+                // Upload the file to Firebase Storage
                 const snapshot = await fileRef.put(file);
+                
+                // Get the download URL of the uploaded file
                 const downloadURL = await snapshot.ref.getDownloadURL();
 
                 // Send the file message with the URL
@@ -273,12 +287,14 @@ $username = $_SESSION['username'];
                     to: selectedUser,
                     message: encrypt(fileMsg)
                 };
-                ws.send(JSON.stringify(payload));
+                ws.send(JSON.stringify(payload)); // Send the file message through WebSocket
             } catch (error) {
                 console.error("Error uploading file:", error);
                 alert("File upload failed.");
             }
-};
+        };
+
+
 
 
         document.getElementById("emojiBtn").onclick = () => {
